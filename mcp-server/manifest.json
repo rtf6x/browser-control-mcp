@@ -82,6 +82,18 @@
         {
             "name": "find-highlight-in-browser-tab",
             "description": "Find and highlight text in a browser tab"
+        },
+        {
+            "name": "evaluate-script-in-tab",
+            "description": "Evaluate a JavaScript function in a browser tab"
+        },
+        {
+            "name": "query-dom-in-tab",
+            "description": "Query DOM elements in a browser tab using CSS selectors"
+        },
+        {
+            "name": "get-console-messages-in-tab",
+            "description": "Read console messages from a browser tab"
         }
     ]
 }

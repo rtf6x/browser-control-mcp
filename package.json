@@ -4,7 +4,10 @@
   "private": true,
   "scripts": {
     "postinstall": "npm install --prefix mcp-server && npm install --prefix firefox-extension",
-    "build": "nx run-many --target=build --all --parallel"
+    "build": "nx run-many --target=build --all --parallel",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f browser-control-mcp"
   },
   "devDependencies": {
     "nx": "22.3.3"

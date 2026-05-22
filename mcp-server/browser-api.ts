@@ -13,6 +13,7 @@ import * as crypto from "crypto";
 
 const WS_DEFAULT_PORT = 8089;
 const EXTENSION_RESPONSE_TIMEOUT_MS = 1000;
+const SCRIPT_RESPONSE_TIMEOUT_MS = 15000;
 
 interface ExtensionRequestResolver<T extends ExtensionMessage["resource"]> {
   resource: T;
@@ -24,6 +25,7 @@ export class BrowserAPI {
   private ws: WebSocket | null = null;
   private wsServer: WebSocket.Server | null = null;
   private sharedSecret: string | null = null;
+  private initError: string | null = null;
 
   // Map to persist the request to the extension. It maps the request correlationId
   // to a resolver, fulfulling a promise created when sending a message to the extension.
@@ -42,9 +44,8 @@ export class BrowserAPI {
     this.sharedSecret = secret;
 
     if (await isPortInUse(port)) {
-      throw new Error(
-        `Configured port ${port} is already in use. Please configure a different port.`
-      );
+      this.initError = `Port ${port} is already in use (another browser-control MCP server may be running). Kill it with: lsof -i :${port}`;
+      throw new Error(this.initError);
     }
 
     // Unless running in a container, bind to localhost only
@@ -175,18 +176,84 @@ export class BrowserAPI {
     return message.groupId;
   }
 
+  async evaluateScript(
+    tabId: number,
+    fn: string,
+    args?: unknown[]
+  ): Promise<unknown> {
+    const correlationId = this.sendMessageToExtension({
+      cmd: "evaluate-script",
+      tabId,
+      function: fn,
+      args,
+    });
+    const message = await this.waitForResponse(
+      correlationId,
+      "evaluate-script-result",
+      SCRIPT_RESPONSE_TIMEOUT_MS
+    );
+    return message.result;
+  }
+
+  async queryDom(
+    tabId: number,
+    selector: string,
+    mode: "text" | "html" | "list",
+    limit?: number,
+    maxHtmlLength?: number
+  ) {
+    const correlationId = this.sendMessageToExtension({
+      cmd: "query-dom",
+      tabId,
+      selector,
+      mode,
+      limit,
+      maxHtmlLength,
+    });
+    return await this.waitForResponse(
+      correlationId,
+      "query-dom-result",
+      SCRIPT_RESPONSE_TIMEOUT_MS
+    );
+  }
+
+  async getConsoleMessages(
+    tabId: number,
+    clear?: boolean,
+    level?: "log" | "info" | "warn" | "error" | "debug",
+    limit?: number
+  ) {
+    const correlationId = this.sendMessageToExtension({
+      cmd: "get-console-messages",
+      tabId,
+      clear,
+      level,
+      limit,
+    });
+    return await this.waitForResponse(
+      correlationId,
+      "console-messages",
+      SCRIPT_RESPONSE_TIMEOUT_MS
+    );
+  }
+
   private createSignature(payload: string): string {
     if (!this.sharedSecret) {
       throw new Error("Shared secret not initialized");
     }
     const hmac = crypto.createHmac("sha256", this.sharedSecret);
-    hmac.update(payload);
+    hmac.update(payload || '');
     return hmac.digest("hex");
   }
 
   private sendMessageToExtension(message: ServerMessage): string {
+    if (this.initError) {
+      throw new Error(this.initError);
+    }
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      throw new Error("WebSocket is not open");
+      throw new Error(
+        "Firefox extension is not connected. Check that Firefox is running and the Browser Control MCP add-on is enabled with a matching secret and port."
+      );
     }
 
     const correlationId = Math.random().toString(36).substring(2);
@@ -224,7 +291,8 @@ export class BrowserAPI {
 
   private async waitForResponse<T extends ExtensionMessage["resource"]>(
     correlationId: string,
-    resource: T
+    resource: T,
+    timeoutMs: number = EXTENSION_RESPONSE_TIMEOUT_MS
   ): Promise<Extract<ExtensionMessage, { resource: T }>> {
     return new Promise<Extract<ExtensionMessage, { resource: T }>>(
       (resolve, reject) => {
@@ -236,7 +304,7 @@ export class BrowserAPI {
         setTimeout(() => {
           this.extensionRequestMap.delete(correlationId);
           reject("Timed out waiting for response");
-        }, EXTENSION_RESPONSE_TIMEOUT_MS);
+        }, timeoutMs);
       }
     );
   }

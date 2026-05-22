@@ -7,7 +7,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "start": "node dist/server.js",
+    "start": "node dist/http-server.js",
+    "start:stdio": "node dist/server.js",
     "pack-dxt": "npx @anthropic-ai/dxt pack"
   },
   "license": "MIT",
@@ -20,6 +21,7 @@
     "ws": "^8.18.1"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
     "@types/ws": "^8.18.0",
     "typescript": "^5.8.2"
   }

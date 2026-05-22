@@ -1,8 +1,17 @@
 {
     "manifest_version": 2,
-    "name": "Browser Control MCP",
-    "version": "1.5.0",
-    "description": "An extension that allows a local MCP server to perform actions on the browser.",
+    "name": "Browser Control MCP (Personal)",
+    "version": "1.5.2",
+    "description": "Personal fork: local MCP server control for Firefox (tabs, history, page tools). Not affiliated with the AMO add-on.",
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "browser-control-mcp-personal@rtf6x.local",
+            "strict_min_version": "140.0",
+            "data_collection_permissions": {
+                "required": ["none"]
+            }
+        }
+    },
     "permissions": [
         "tabs",
         "tabGroups",

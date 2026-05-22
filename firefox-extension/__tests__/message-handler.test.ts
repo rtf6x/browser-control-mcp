@@ -41,6 +41,9 @@ describe("MessageHandler", () => {
         "get-tab-web-content": true,
         "reorder-browser-tabs": true,
         "find-highlight-in-browser-tab": true,
+        "evaluate-script-in-tab": true,
+        "query-dom-in-tab": true,
+        "get-console-messages-in-tab": true,
       },
       domainDenyList: [],
       ports: [8089],
@@ -547,6 +550,98 @@ describe("MessageHandler", () => {
           messageHandler.handleDecodedMessage(request)
         ).rejects.toThrow();
         expect(browser.find.find).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("evaluate-script command", () => {
+      it("should evaluate a script and send the result to the server", async () => {
+        const request: ServerMessageRequest = {
+          cmd: "evaluate-script",
+          tabId: 123,
+          function: "() => document.title",
+          correlationId: "test-correlation-id",
+        };
+
+        const mockTab = { id: 123, url: "https://example.com" };
+        (browser.tabs.get as jest.Mock).mockResolvedValue(mockTab);
+        (browser.permissions.contains as jest.Mock).mockResolvedValue(true);
+        (browser.tabs.executeScript as jest.Mock).mockResolvedValue([
+          "Example Domain",
+        ]);
+
+        await messageHandler.handleDecodedMessage(request);
+
+        expect(browser.tabs.executeScript).toHaveBeenCalled();
+        expect(mockClient.sendResourceToServer).toHaveBeenCalledWith({
+          resource: "evaluate-script-result",
+          correlationId: "test-correlation-id",
+          tabId: 123,
+          result: "Example Domain",
+        });
+      });
+    });
+
+    describe("query-dom command", () => {
+      it("should query DOM and send the result to the server", async () => {
+        const request: ServerMessageRequest = {
+          cmd: "query-dom",
+          tabId: 123,
+          selector: "h1",
+          mode: "text",
+          correlationId: "test-correlation-id",
+        };
+
+        const mockTab = { id: 123, url: "https://example.com" };
+        (browser.tabs.get as jest.Mock).mockResolvedValue(mockTab);
+        (browser.permissions.contains as jest.Mock).mockResolvedValue(true);
+        (browser.tabs.executeScript as jest.Mock).mockResolvedValue([
+          { found: true, matchCount: 1, innerText: "Hello" },
+        ]);
+
+        await messageHandler.handleDecodedMessage(request);
+
+        expect(mockClient.sendResourceToServer).toHaveBeenCalledWith({
+          resource: "query-dom-result",
+          correlationId: "test-correlation-id",
+          tabId: 123,
+          found: true,
+          matchCount: 1,
+          innerText: "Hello",
+        });
+      });
+    });
+
+    describe("get-console-messages command", () => {
+      it("should return buffered console messages", async () => {
+        const request: ServerMessageRequest = {
+          cmd: "get-console-messages",
+          tabId: 123,
+          clear: false,
+          correlationId: "test-correlation-id",
+        };
+
+        const mockTab = { id: 123, url: "https://example.com" };
+        (browser.tabs.get as jest.Mock).mockResolvedValue(mockTab);
+        (browser.permissions.contains as jest.Mock).mockResolvedValue(true);
+        (browser.tabs.executeScript as jest.Mock)
+          .mockResolvedValueOnce([null])
+          .mockResolvedValueOnce([
+            {
+              entries: [{ level: "log", timestamp: 1, messages: ["hello"] }],
+              totalBuffered: 1,
+            },
+          ]);
+
+        await messageHandler.handleDecodedMessage(request);
+
+        expect(browser.tabs.executeScript).toHaveBeenCalledTimes(2);
+        expect(mockClient.sendResourceToServer).toHaveBeenCalledWith({
+          resource: "console-messages",
+          correlationId: "test-correlation-id",
+          tabId: 123,
+          entries: [{ level: "log", timestamp: 1, messages: ["hello"] }],
+          totalBuffered: 1,
+        });
       });
     });
   });

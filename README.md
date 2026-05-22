@@ -102,31 +102,71 @@ Set the EXTENSION_SECRET to the value shown on the extension's preferences page 
 
 It might take a few seconds for the MCP server to connect to the extension.
 
-##### Configure the MCP server with Docker
+##### OpenCode with Docker (recommended)
 
-Alternatively, you can use a Docker-based configuration. To do so, build the mcp-server Docker image:
-```
-docker build -t browser-control-mcp .
+Run the MCP server in Docker as a persistent daemon. OpenCode connects over HTTP; Firefox on the host connects to the exposed WebSocket port.
+
+1. Copy the secret from the Firefox add-on settings page (`about:addons`):
+
+```bash
+cp .env.example .env
+# edit .env and set EXTENSION_SECRET
 ```
 
-and use the following mcpServers configuration:
+2. Start the container:
+
+```bash
+docker compose up -d --build
+# or: npm run docker:up
+```
+
+3. Add to `~/.config/opencode/opencode.json`:
 
 ```json
 {
-    "mcpServers": {
-        "browser-control": {
-            "command": "docker",
-            "args": [
-                "run",
-                "--rm",
-                "-i",
-                "-p", "127.0.0.1:8089:8089",
-                "-e", "EXTENSION_SECRET=<secret_from_extension>",
-                "-e", "CONTAINERIZED=true",
-                "browser-control-mcp"
-            ]
-        }
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "browser-control": {
+      "type": "remote",
+      "url": "http://127.0.0.1:8090/mcp",
+      "oauth": false,
+      "enabled": true
     }
+  }
 }
 ```
+
+Ports exposed on the host:
+
+| Port | Purpose |
+|------|---------|
+| `8090` | MCP HTTP for OpenCode (`/mcp`) |
+| `8089` | WebSocket for the Firefox extension |
+
+Check the container:
+
+```bash
+curl http://127.0.0.1:8090/health
+docker compose logs -f browser-control-mcp
+```
+
+Ensure the Firefox add-on uses port **8089** and the same **EXTENSION_SECRET** as in `.env`.
+
+Use `dist/server.js` with `npm run start:stdio` only for stdio-based clients like Claude Desktop.
+
+##### Configure the MCP server with Docker (manual)
+
+Without docker compose, build and run directly:
+
+```
+docker build -t browser-control-mcp .
+docker run -d --name browser-control-mcp --restart unless-stopped \
+  -p 127.0.0.1:8089:8089 \
+  -p 127.0.0.1:8090:8090 \
+  -e EXTENSION_SECRET=<secret_from_extension> \
+  -e CONTAINERIZED=true \
+  browser-control-mcp
+```
+
+Point OpenCode at `http://127.0.0.1:8090/mcp` with `"type": "remote"`.
 

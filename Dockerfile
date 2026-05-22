@@ -21,11 +21,12 @@ COPY mcp-server/ ./
 # Build mcp-server
 RUN npm run build
 
-# Set default port (EXTENSION_SECRET should be provided at runtime)
+# Expose MCP HTTP (8090) and extension WebSocket (8089) ports
 ENV EXTENSION_PORT=8089
+ENV MCP_HTTP_PORT=8090
+ENV CONTAINERIZED=true
 
-# Expose port (default WebSocket port for extension communication)
-EXPOSE 8089
+EXPOSE 8089 8090
 
-# Start the MCP server
-CMD ["npm", "start"]
+# Start the persistent HTTP MCP server
+CMD ["node", "dist/http-server.js"]

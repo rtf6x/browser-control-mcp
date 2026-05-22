@@ -60,6 +60,45 @@ export interface TabGroupCreatedExtensionMessage extends ExtensionMessageBase {
   groupId: number;
 }
 
+export interface EvaluateScriptExtensionMessage extends ExtensionMessageBase {
+  resource: "evaluate-script-result";
+  tabId: number;
+  result: unknown;
+}
+
+export interface QueryDomExtensionMessage extends ExtensionMessageBase {
+  resource: "query-dom-result";
+  tabId: number;
+  found: boolean;
+  matchCount: number;
+  innerText?: string;
+  outerHTML?: string;
+  isTruncated?: boolean;
+  totalLength?: number;
+  elements?: Array<{
+    index: number;
+    tagName: string;
+    id: string | null;
+    className: string | null;
+    innerText: string;
+    outerHTML: string;
+    isHtmlTruncated: boolean;
+  }>;
+}
+
+export interface ConsoleMessageEntry {
+  level: string;
+  timestamp: number;
+  messages: unknown[];
+}
+
+export interface ConsoleMessagesExtensionMessage extends ExtensionMessageBase {
+  resource: "console-messages";
+  tabId: number;
+  entries: ConsoleMessageEntry[];
+  totalBuffered: number;
+}
+
 export type ExtensionMessage =
   | TabContentExtensionMessage
   | TabsExtensionMessage
@@ -68,7 +107,10 @@ export type ExtensionMessage =
   | ReorderedTabsExtensionMessage
   | FindHighlightExtensionMessage
   | TabsClosedExtensionMessage
-  | TabGroupCreatedExtensionMessage;
+  | TabGroupCreatedExtensionMessage
+  | EvaluateScriptExtensionMessage
+  | QueryDomExtensionMessage
+  | ConsoleMessagesExtensionMessage;
 
 export interface ExtensionError {
   correlationId: string;

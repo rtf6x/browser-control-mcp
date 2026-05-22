@@ -580,6 +580,10 @@ saveDomainListsButton.addEventListener("click", saveDomainLists);
 savePortsButton.addEventListener("click", savePorts);
 clearAuditLogButton.addEventListener("click", handleClearAuditLog);
 document.addEventListener("DOMContentLoaded", () => {
+  const versionEl = document.getElementById("extension-version");
+  if (versionEl) {
+    versionEl.textContent = `(v${browser.runtime.getManifest().version})`;
+  }
   loadSecret();
   createToolSettingsUI();
   loadDomainLists();

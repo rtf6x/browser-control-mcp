@@ -49,6 +49,21 @@ export const AVAILABLE_TOOLS: ToolInfo[] = [
     id: "find-highlight-in-browser-tab",
     name: "Find and Highlight in Browser Tab",
     description: "Allows the MCP server to search for and highlight text in web pages"
+  },
+  {
+    id: "evaluate-script-in-tab",
+    name: "Evaluate Script in Tab",
+    description: "Allows the MCP server to run JavaScript functions in web pages"
+  },
+  {
+    id: "query-dom-in-tab",
+    name: "Query DOM in Tab",
+    description: "Allows the MCP server to query DOM elements (text, HTML, element lists)"
+  },
+  {
+    id: "get-console-messages-in-tab",
+    name: "Get Console Messages in Tab",
+    description: "Allows the MCP server to read console.log/info/warn/error/debug output from web pages"
   }
 ];
 
@@ -62,6 +77,9 @@ export const COMMAND_TO_TOOL_ID: Record<ServerMessageRequest["cmd"], string> = {
   "reorder-tabs": "reorder-browser-tabs",
   "find-highlight": "find-highlight-in-browser-tab",
   "group-tabs": "reorder-browser-tabs",
+  "evaluate-script": "evaluate-script-in-tab",
+  "query-dom": "query-dom-in-tab",
+  "get-console-messages": "get-console-messages-in-tab",
 };
 
 // Storage schema for tool settings
@@ -105,10 +123,11 @@ export async function getConfig(): Promise<ExtensionConfig> {
   const configObj = await browser.storage.local.get("config");
   const config: ExtensionConfig = configObj.config || { secret: "" };
   
-  // Initialize toolSettings if it doesn't exist
-  if (!config.toolSettings) {
-    config.toolSettings = getDefaultToolSettings();
-  }
+  // Initialize toolSettings if it doesn't exist; merge defaults so newly added tools are enabled
+  config.toolSettings = {
+    ...getDefaultToolSettings(),
+    ...config.toolSettings,
+  };
 
   if (!config.ports) {
     config.ports = [DEFAULT_WS_PORT];

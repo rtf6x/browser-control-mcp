@@ -46,6 +46,32 @@ export interface GroupTabsServerMessage extends ServerMessageBase {
   groupTitle: string;
 }
 
+export interface EvaluateScriptServerMessage extends ServerMessageBase {
+  cmd: "evaluate-script";
+  tabId: number;
+  function: string;
+  args?: unknown[];
+}
+
+export type DomQueryMode = "text" | "html" | "list";
+
+export interface QueryDomServerMessage extends ServerMessageBase {
+  cmd: "query-dom";
+  tabId: number;
+  selector: string;
+  mode: DomQueryMode;
+  limit?: number;
+  maxHtmlLength?: number;
+}
+
+export interface GetConsoleMessagesServerMessage extends ServerMessageBase {
+  cmd: "get-console-messages";
+  tabId: number;
+  clear?: boolean;
+  level?: "log" | "info" | "warn" | "error" | "debug";
+  limit?: number;
+}
+
 export type ServerMessage =
   | OpenTabServerMessage
   | CloseTabsServerMessage
@@ -54,6 +80,9 @@ export type ServerMessage =
   | GetTabContentServerMessage
   | ReorderTabsServerMessage
   | FindHighlightServerMessage
-  | GroupTabsServerMessage;
+  | GroupTabsServerMessage
+  | EvaluateScriptServerMessage
+  | QueryDomServerMessage
+  | GetConsoleMessagesServerMessage;
 
 export type ServerMessageRequest = ServerMessage & { correlationId: string };

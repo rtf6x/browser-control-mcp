@@ -4,6 +4,7 @@
   "main": "dist/background.js",
   "scripts": {
     "build": "esbuild background.ts --bundle --outfile=dist/background.js && esbuild options.ts --bundle --outfile=dist/options.js",
+    "pack-xpi": "npm run build && rm -f ../browser-control-mcp-dev.xpi && cd . && zip -r ../browser-control-mcp-dev.xpi manifest.json dist options.html assets -x '*.DS_Store'",
     "test": "jest"
   },
   "license": "MIT",

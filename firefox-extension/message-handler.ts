@@ -1,6 +1,14 @@
-import type { ServerMessageRequest } from "@browser-control-mcp/common";
+import type { QueryDomExtensionMessage, ServerMessageRequest } from "@browser-control-mcp/common";
 import { WebsocketClient } from "./client";
 import { isCommandAllowed, isDomainInDenyList, COMMAND_TO_TOOL_ID, addAuditLogEntry } from "./extension-config";
+import {
+  buildEvaluateScript,
+  buildGetConsoleMessagesScript,
+  buildQueryDomScript,
+  executeInTab,
+  installConsoleCapture,
+  type DomQueryMode,
+} from "./tab-page-access";
 
 export class MessageHandler {
   private client: WebsocketClient;
@@ -52,6 +60,33 @@ export class MessageHandler {
           req.isCollapsed,
           req.groupColor as browser.tabGroups.Color,
           req.groupTitle
+        );
+        break;
+      case "evaluate-script":
+        await this.evaluateScript(
+          req.correlationId,
+          req.tabId,
+          req.function,
+          req.args
+        );
+        break;
+      case "query-dom":
+        await this.queryDom(
+          req.correlationId,
+          req.tabId,
+          req.selector,
+          req.mode,
+          req.limit,
+          req.maxHtmlLength
+        );
+        break;
+      case "get-console-messages":
+        await this.getConsoleMessages(
+          req.correlationId,
+          req.tabId,
+          req.clear,
+          req.level,
+          req.limit
         );
         break;
       default:
@@ -323,6 +358,77 @@ export class MessageHandler {
       resource: "new-tab-group",
       correlationId,
       groupId: tabGroup.id,
+    });
+  }
+
+  private async evaluateScript(
+    correlationId: string,
+    tabId: number,
+    functionSource: string,
+    args?: unknown[]
+  ): Promise<void> {
+    await installConsoleCapture(tabId);
+    const result = await executeInTab<unknown>(
+      tabId,
+      buildEvaluateScript(functionSource, args ?? [])
+    );
+
+    await this.client.sendResourceToServer({
+      resource: "evaluate-script-result",
+      correlationId,
+      tabId,
+      result,
+    });
+  }
+
+  private async queryDom(
+    correlationId: string,
+    tabId: number,
+    selector: string,
+    mode: DomQueryMode,
+    limit?: number,
+    maxHtmlLength?: number
+  ): Promise<void> {
+    const result = await executeInTab<{
+      found: boolean;
+      matchCount: number;
+      innerText?: string;
+      outerHTML?: string;
+      isTruncated?: boolean;
+      totalLength?: number;
+      elements?: QueryDomExtensionMessage["elements"];
+    }>(
+      tabId,
+      buildQueryDomScript(selector, mode, limit ?? 20, maxHtmlLength ?? 5000)
+    );
+
+    await this.client.sendResourceToServer({
+      resource: "query-dom-result",
+      correlationId,
+      tabId,
+      ...result,
+    });
+  }
+
+  private async getConsoleMessages(
+    correlationId: string,
+    tabId: number,
+    clear?: boolean,
+    level?: "log" | "info" | "warn" | "error" | "debug",
+    limit?: number
+  ): Promise<void> {
+    await installConsoleCapture(tabId);
+    const result = await executeInTab<{
+      entries: Array<{ level: string; timestamp: number; messages: unknown[] }>;
+      totalBuffered: number;
+    }>(tabId, buildGetConsoleMessagesScript(!!clear, level, limit ?? 100));
+
+    await this.client.sendResourceToServer({
+      resource: "console-messages",
+      correlationId,
+      tabId,
+      entries: result.entries,
+      totalBuffered: result.totalBuffered,
     });
   }
 }
