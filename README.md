@@ -1,126 +1,143 @@
-# Browser Control MCP
+# Browser Control MCP (Personal)
 
-[![Firefox Add-on](./.github/addon_badge.svg)](https://addons.mozilla.org/en-US/firefox/addon/browser-control-mcp/)
+Personal fork of [Browser Control MCP](https://github.com/eyalzh/browser-control-mcp) — an MCP server paired with a Firefox extension that lets AI assistants work with your browser locally.
 
-An MCP server paired with a Firefox browser extension that provides AI assistants with access to tab management, browsing history, and webpage text content.
+**Not affiliated** with the [official AMO add-on](https://addons.mozilla.org/en-US/firefox/addon/browser-control-mcp/). This fork uses a separate extension ID (`browser-control-mcp-personal@rtf6x.local`) and adds HTTP transport for [OpenCode](https://opencode.ai), Docker deployment, and extra page-inspection tools.
 
-## Features
+## What it does
 
-The MCP server supports the following tools:
-- Open or close tabs
-- Get the list of opened tabs
-- Create tab groups with name and color
-- Reorder opened tabs
-- Read and search the browser's history
-- Read a webpage's text content and links (requires user consent)
-- Find and highlight text in a browser tab (requires user consent)
+- **Tabs** — open, close, list, reorder, group
+- **History** — search recent browsing history
+- **Pages** — read text/links, find/highlight, run JS, query DOM, read console output (with per-domain consent)
+- **Local-only** — WebSocket + shared secret between extension and MCP server; no cloud backend
 
-## Example use-cases:
+## Architecture
 
-### Tab management
-- *"Close all non-work-related tabs in my browser."*
-- *"Group all development related tabs in my browser into a new group called 'Development'."*
-- *"Rearrange tabs in my browser in an order that makes sense."*
-- *"Close all tabs in my browser that haven't been accessed within the past 24 hours"*
-
-### Browser history search
-- *"Help me find an article in my browser history about the Milford track in NZ."*
-- *"Open all the articles about AI that I visited during the last week, up to 10 articles, avoid duplications."*
-
-### Browsing and research 
-- *"Open hackernews in my browser, then open the top story, read it, also read the comments. Do the comments agree with the story?"*
-- *"In my browser, use Google Scholar to search for papers about L-theanine in the last 3 years. Open the 3 most cited papers. Read them and summarize them for me."*
-- *"Use Google search in my browser to look for flower shops. Open the 10 most relevant results. Show me a table of each flower shop with location and opening hours."*
-
-## Comparison to web automation MCP servers
-
-The MCP server and Firefox extension combo is designed to be more secure than web automation MCP servers, enabling safer use with the user's personal browser.
-
-* It does not support web page modification, page interactions, or arbitrary scripting.
-* Reading webpage content requires the user's explicit consent in the browser for each domain. This is enforced at the extension's manifest level.
-* It uses a local-only connection with a shared secret between the MCP server and extension.
-* No remote data collection or tracking.
-* It provides an extension-side audit log for tool calls and tool enable/disable configuration.
-* The extension includes no runtime third-party dependencies.
-
-**Important note**: Browser Control MCP is still experimental. Use at your own risk. You should practice caution as with any other MCP server and authorize/monitor tool calls carefully.
-
-## Installation
-
-### Option 1: Install the Firefox and Claude Desktop extensions
-
-The Firefox extension / add-on is [available on addons.mozilla.org](https://addons.mozilla.org/en-US/firefox/addon/browser-control-mcp/). You can also download and open the latest pre-built version from this GitHub repository: [browser-control-mcp-1.5.0.xpi](https://github.com/eyalzh/browser-control-mcp/releases/download/v1.5.0/browser-control-1.5.0.xpi). Complete the installation based on the instructions in the "Manage extension" page, which will open automatically after installation.
-
-The add-on's "Manage extension" page will include a link to the Claude Desktop DXT file. You can also download it here: [mcp-server-v1.5.1.dxt](
-https://github.com/eyalzh/browser-control-mcp/releases/download/v1.5.1/mcp-server-v1.5.1.dxt). After downloading the file, open it or drag it into Claude Desktop's settings window. Make sure to enable the DXT extension after installing it. This will only work with the latest versions of Claude Desktop. If you wish to install the MCP server locally, see the MCP configuration below.
-
-### Option 2: Build from code
-
-To build from code, clone this repository, then run the following commands in the main repository directory to build both the MCP server and the browser extension.
 ```
+┌─────────────┐     MCP (stdio)      ┌──────────────┐
+│ Claude      │◄────────────────────►│              │
+│ Desktop     │                      │  MCP Server  │
+└─────────────┘                      │              │
+                                     │  :8090 HTTP  │◄── OpenCode (remote MCP)
+┌─────────────┐     ws://:8089       │  :8089 WS    │
+│ Firefox     │◄────────────────────►│              │
+│ Extension   │                      └──────────────┘
+└─────────────┘
+```
+
+| Component | Role |
+|-----------|------|
+| `firefox-extension/` | Runs in Firefox; WebSocket server on port 8089; executes browser actions |
+| `mcp-server/` | MCP server; talks to the extension over WebSocket |
+| `common/` | Shared TypeScript message types |
+
+**Two MCP transports:**
+
+| Transport | Entry point | Use with |
+|-----------|-------------|----------|
+| HTTP (Streamable HTTP) | `dist/http-server.js` (:8090) | OpenCode, remote MCP clients |
+| stdio | `dist/server.js` | Claude Desktop, local MCP configs |
+
+Port **8089** is the extension WebSocket — **not** MCP. Do not point OpenCode at `:8089`.
+
+## MCP tools
+
+All tools can be enabled or disabled individually in the extension options page (`about:addons` → Preferences). Tools marked **consent** require optional host permission and explicit per-domain approval in the extension UI.
+
+| Tool | Description | Consent |
+|------|-------------|---------|
+| `open-browser-tab` | Open a URL in a new tab | — |
+| `close-browser-tabs` | Close tabs by ID | — |
+| `get-list-of-open-tabs` | List open tabs (paginated) | — |
+| `get-recent-browser-history` | Search or list recent history | — |
+| `reorder-browser-tabs` | Change tab order | — |
+| `group-browser-tabs` | Create a tab group (title, color, collapse) | — |
+| `get-tab-web-content` | Read page text and links (paginated for large pages) | **consent** |
+| `find-highlight-in-browser-tab` | Find and highlight text on a page | **consent** |
+| `evaluate-script-in-tab` | Run a JSON-serializable JS function in the page | **consent** |
+| `query-dom-in-tab` | CSS selector → text, HTML, or element list | **consent** |
+| `get-console-messages-in-tab` | Read `console.log/info/warn/error/debug` from a tab | **consent** |
+
+The three page-inspection tools (`evaluate-script`, `query-dom`, `get-console-messages`) are **disabled by default** in extension settings.
+
+### Example prompts
+
+**Tab management**
+- *"Close all tabs I haven't used in 24 hours."*
+- *"Group my GitHub tabs into a group called Development."*
+
+**History**
+- *"Find articles about L-theanine in my browser history from the last week."*
+
+**Research**
+- *"Open HN, read the top story and summarize the comments."*
+- *"On the open tab, run a DOM query for all `h2` headings and list them."*
+- *"Check console errors on the current page."*
+
+## Security model
+
+Compared to full browser-automation MCP servers, this stack is designed for use with a personal browser:
+
+- Local WebSocket only (`127.0.0.1`) with a random shared secret
+- Per-tool toggles and an audit log in the extension options
+- Host permissions and domain consent before reading or scripting pages
+- No analytics or remote data collection (`data_collection_permissions: none`)
+- No runtime third-party dependencies in the shipped extension
+
+**Caution:** when page tools are enabled, the assistant can execute JavaScript and read page content on domains you approve. Review tool calls and keep sensitive tools disabled if you do not need them.
+
+## Quick start (OpenCode + Docker)
+
+Recommended setup: one persistent MCP container + Firefox extension on the host.
+
+### 1. Build
+
+```bash
 npm install
 npm run build
 ```
 
-#### Installing a Firefox Temporary Add-on 
+### 2. Install the Firefox extension
 
-To install the extension on Firefox as a Temporary Add-on:
+**Option A — signed XPI (persistent install)**
 
-1. Type `about:debugging` in the Firefox URL bar
-2. Click on "This Firefox"
-3. click on "Load Temporary Add-on..."
-4. Select the `manifest.json` file under the `firefox-extension` folder in this project
-5. The extension's preferences page will open. Copy the secret key to your clipboard. It will be used to configure the MCP server.
-
-Alternatively, to install a permanent add-on, you can install the [Browser Control MCP on addons.mozilla.org](https://addons.mozilla.org/en-US/firefox/addon/browser-control-mcp/) and then configure the MCP Server as detailed below.
-
-If you prefer not to run the extension on your personal Firefox browser, an alternative is to download a separate Firefox instance (such as Firefox Developer Edition, available at https://www.mozilla.org/en-US/firefox/developer/).
-
-
-#### MCP Server configuration
-
-After installing the browser extension, add the following configuration to your mcpServers configuration (e.g. `claude_desktop_config.json` for Claude Desktop):
-```json
-{
-    "mcpServers": {
-        "browser-control": {
-            "command": "node",
-            "args": [
-                "/path/to/repo/mcp-server/dist/server.js"
-            ],
-            "env": {
-                "EXTENSION_SECRET": "<secret_on_firefox_extension_options_page>",
-                "EXTENSION_PORT": "8089" 
-            }
-        }
-    }
-}
+```bash
+cd firefox-extension
+npm run pack-xpi   # → ../browser-control-mcp-dev.xpi
 ```
-Replace `/path/to/repo` with the correct path.
 
-Set the EXTENSION_SECRET to the value shown on the extension's preferences page in Firefox (you can access it at `about:addons`). You can also set the EXTENSION_PORT environment variable to specify the port that the MCP server will use to communicate with the extension (default is 8089).
+Install the XPI in Firefox. After install, open extension preferences and copy the **shared secret**.
 
-It might take a few seconds for the MCP server to connect to the extension.
+**Option B — temporary add-on (development)**
 
-##### OpenCode with Docker (recommended)
+1. Open `about:debugging` → This Firefox → Load Temporary Add-on
+2. Select `firefox-extension/manifest.json`
+3. Copy the secret from the options page that opens
 
-Run the MCP server in Docker as a persistent daemon. OpenCode connects over HTTP; Firefox on the host connects to the exposed WebSocket port.
-
-1. Copy the secret from the Firefox add-on settings page (`about:addons`):
+### 3. Configure environment
 
 ```bash
 cp .env.example .env
-# edit .env and set EXTENSION_SECRET
+# Set EXTENSION_SECRET to the value from the extension options page
 ```
 
-2. Start the container:
+### 4. Start MCP server in Docker
 
 ```bash
-docker compose up -d --build
-# or: npm run docker:up
+npm run docker:up
+# or: docker compose up -d --build
 ```
 
-3. Add to `~/.config/opencode/opencode.json`:
+Verify:
+
+```bash
+curl http://127.0.0.1:8090/health
+npm run docker:logs
+```
+
+### 5. Configure OpenCode
+
+Add to `~/.config/opencode/opencode.json`:
 
 ```json
 {
@@ -136,29 +153,44 @@ docker compose up -d --build
 }
 ```
 
-Ports exposed on the host:
+Restart OpenCode (or reload MCP). The extension must be running in Firefox with port **8089** and the same secret as in `.env`.
 
-| Port | Purpose |
-|------|---------|
-| `8090` | MCP HTTP for OpenCode (`/mcp`) |
-| `8089` | WebSocket for the Firefox extension |
+## Installation (other clients)
 
-Check the container:
+### Claude Desktop (stdio)
+
+Build the extension and MCP server, install the Firefox add-on, then add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "browser-control": {
+      "command": "node",
+      "args": ["/path/to/repo/mcp-server/dist/server.js"],
+      "env": {
+        "EXTENSION_SECRET": "<secret_from_extension_options>",
+        "EXTENSION_PORT": "8089"
+      }
+    }
+  }
+}
+```
+
+For Claude Desktop you can also use the upstream [DXT package](https://github.com/eyalzh/browser-control-mcp/releases) with the official AMO extension — that path does not include this fork's extra tools or HTTP server.
+
+### MCP server without Docker
 
 ```bash
-curl http://127.0.0.1:8090/health
-docker compose logs -f browser-control-mcp
+cd mcp-server
+cp ../.env .env   # or export EXTENSION_SECRET
+npm run build
+npm start         # HTTP on :8090
+# npm run start:stdio   # stdio for Claude Desktop
 ```
 
-Ensure the Firefox add-on uses port **8089** and the same **EXTENSION_SECRET** as in `.env`.
+### Manual Docker run
 
-Use `dist/server.js` with `npm run start:stdio` only for stdio-based clients like Claude Desktop.
-
-##### Configure the MCP server with Docker (manual)
-
-Without docker compose, build and run directly:
-
-```
+```bash
 docker build -t browser-control-mcp .
 docker run -d --name browser-control-mcp --restart unless-stopped \
   -p 127.0.0.1:8089:8089 \
@@ -168,5 +200,72 @@ docker run -d --name browser-control-mcp --restart unless-stopped \
   browser-control-mcp
 ```
 
-Point OpenCode at `http://127.0.0.1:8090/mcp` with `"type": "remote"`.
+## Environment variables
 
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `EXTENSION_SECRET` | — | Shared secret from extension options (required) |
+| `EXTENSION_PORT` | `8089` | WebSocket port the extension listens on |
+| `MCP_HTTP_PORT` | `8090` | HTTP MCP endpoint port |
+| `CONTAINERIZED` | — | Set to `true` in Docker so HTTP binds to `0.0.0.0` |
+
+## Commands
+
+```bash
+npm install              # install all packages
+npm run build            # build extension + MCP server
+
+# Firefox extension
+cd firefox-extension && npm run build
+cd firefox-extension && npm run pack-xpi
+cd firefox-extension && npm test
+
+# MCP server
+cd mcp-server && npm start          # HTTP (default)
+cd mcp-server && npm run start:stdio  # stdio
+
+# Docker
+npm run docker:up
+npm run docker:down
+npm run docker:logs
+```
+
+## Troubleshooting
+
+| Problem | Likely cause | Fix |
+|---------|--------------|-----|
+| OpenCode: failed to get tools | Wrong URL or server not running | Use `http://127.0.0.1:8090/mcp`, not `:8089`. Check `curl …/health` |
+| MCP can't connect to extension | Secret mismatch or extension inactive | Match `.env` secret with options page; reload extension |
+| Port 8089 already in use | Multiple MCP instances | Stop extra containers/processes: `docker compose down`, kill stray `node dist/server.js` |
+| Unknown command in extension | Old AMO build without new tools | Install this fork's XPI (v1.5.2+) |
+| Page tools fail | Tool disabled or no domain consent | Enable tool in options; grant consent for the site |
+
+After changing code or `.env`:
+
+```bash
+npm run build && npm run docker:up
+```
+
+Reload the Firefox extension if you changed extension code.
+
+## Project layout
+
+```
+browser-control-mcp/
+├── common/                 # Shared message types
+├── firefox-extension/      # Firefox add-on (TypeScript → esbuild)
+├── mcp-server/             # MCP server (TypeScript → tsc)
+├── docker-compose.yml
+├── Dockerfile
+└── .env.example
+```
+
+## Upstream
+
+This fork is based on [eyalzh/browser-control-mcp](https://github.com/eyalzh/browser-control-mcp). The official project and [AMO listing](https://addons.mozilla.org/en-US/firefox/addon/browser-control-mcp/) are maintained separately.
+
+**Fork additions:** HTTP MCP for OpenCode, Docker compose, `evaluate-script-in-tab`, `query-dom-in-tab`, `get-console-messages-in-tab`, personal extension ID.
+
+## License
+
+MIT (same as upstream). Use at your own risk — MCP tools can control your browser.
