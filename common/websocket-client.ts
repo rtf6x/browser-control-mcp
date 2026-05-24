@@ -42,6 +42,7 @@ export class WebsocketClient {
   private readonly browserType?: string;
   private messageCallback: ((data: ServerMessageRequest) => void) | null = null;
   private status: ConnectionStatus = "disconnected";
+  private readonly statusListeners = new Set<(status: ConnectionStatus) => void>();
 
   constructor(
     wsUrl: string,
@@ -63,6 +64,26 @@ export class WebsocketClient {
 
   public getStatus(): ConnectionStatus {
     return this.status;
+  }
+
+  public addStatusListener(
+    callback: (status: ConnectionStatus) => void
+  ): () => void {
+    this.statusListeners.add(callback);
+    callback(this.status);
+    return () => {
+      this.statusListeners.delete(callback);
+    };
+  }
+
+  private setStatus(status: ConnectionStatus): void {
+    if (this.status === status) {
+      return;
+    }
+    this.status = status;
+    for (const listener of this.statusListeners) {
+      listener(status);
+    }
   }
 
   /** Start or retry connection. Safe to call when MCP server is offline. */
@@ -118,7 +139,7 @@ export class WebsocketClient {
   public disconnect(): void {
     this.clearReconnectTimeout();
     this.detachSocket();
-    this.status = "disconnected";
+    this.setStatus("disconnected");
     this.connectInFlight = false;
   }
 
@@ -134,20 +155,23 @@ export class WebsocketClient {
     this.connectInFlight = true;
     this.clearReconnectTimeout();
     this.detachSocket();
-    this.status = "connecting";
+    this.setStatus("connecting");
 
     try {
       const serverUp = await this.probeHealth();
       if (!serverUp) {
-        this.status = "disconnected";
+        this.setStatus("disconnected");
         this.noteOffline();
         this.scheduleReconnect();
+        this.connectInFlight = false;
         return;
       }
 
       this.openWebSocket();
-    } finally {
+    } catch {
+      this.setStatus("disconnected");
       this.connectInFlight = false;
+      this.scheduleReconnect();
     }
   }
 
@@ -172,13 +196,12 @@ export class WebsocketClient {
   }
 
   private openWebSocket(): void {
-    this.detachSocket();
-
     let socket: WebSocket;
     try {
       socket = new WebSocket(this.wsUrl);
     } catch {
-      this.status = "disconnected";
+      this.connectInFlight = false;
+      this.setStatus("disconnected");
       this.noteOffline();
       this.scheduleReconnect();
       return;
@@ -190,7 +213,8 @@ export class WebsocketClient {
       if (this.socket !== socket) {
         return;
       }
-      this.status = "connected";
+      this.connectInFlight = false;
+      this.setStatus("connected");
       this.reconnectDelayMs = MIN_RECONNECT_MS;
       this.offlineNoticeShown = false;
       console.log(
@@ -206,7 +230,8 @@ export class WebsocketClient {
       if (this.socket !== socket) {
         return;
       }
-      this.status = "disconnected";
+      this.connectInFlight = false;
+      this.setStatus("disconnected");
       this.socket = null;
       this.noteOffline();
       this.scheduleReconnect();

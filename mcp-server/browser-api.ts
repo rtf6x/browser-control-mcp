@@ -21,8 +21,8 @@ import { isPortInUse } from "./util";
 import * as crypto from "crypto";
 
 import { DEFAULT_WS_PORT } from "@browser-control-mcp/common/ports";
-const EXTENSION_RESPONSE_TIMEOUT_MS = 1000;
-const SCRIPT_RESPONSE_TIMEOUT_MS = 15000;
+const EXTENSION_RESPONSE_TIMEOUT_MS = 15_000;
+const SCRIPT_RESPONSE_TIMEOUT_MS = 15_000;
 
 export interface ConnectedBrowserInfo {
   browserId: string;
@@ -522,6 +522,9 @@ export class BrowserAPI {
         setTimeout(() => {
           if (this.extensionRequestMap.has(correlationId)) {
             this.extensionRequestMap.delete(correlationId);
+            console.error(
+              `Timed out waiting for browser "${browserId}" (${resource}, ${timeoutMs}ms)`
+            );
             reject("Timed out waiting for response");
           }
         }, timeoutMs);

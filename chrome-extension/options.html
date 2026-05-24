@@ -455,6 +455,24 @@
     </div>
 
     <div class="section-container">
+      <h2>Site Access</h2>
+      <div class="section-content">
+        <p>By default, page reading and scripting require approval per domain. Enable <strong>access to all sites</strong> to skip per-domain prompts (the domain deny list still applies).</p>
+        <div class="tool-row">
+          <div class="tool-label-container">
+            <div class="tool-name">Access all sites</div>
+            <div class="tool-description">Same as choosing “On all sites” in <code>chrome://extensions</code> for this extension.</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="all-sites-access" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="status" id="all-sites-status"></div>
+      </div>
+    </div>
+
+    <div class="section-container">
       <h2>Tool Permissions</h2>
       <div class="section-content">
         <p>Enable or disable specific MCP tools that can interact with your browser:</p>

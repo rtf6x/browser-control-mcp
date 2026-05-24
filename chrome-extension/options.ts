@@ -44,6 +44,78 @@ const browserIdStatusElement = document.getElementById("browser-id-status") as H
 const auditLogContainer = document.getElementById("audit-log-container") as HTMLDivElement;
 const clearAuditLogButton = document.getElementById("clear-audit-log") as HTMLButtonElement;
 const auditLogStatusElement = document.getElementById("audit-log-status") as HTMLDivElement;
+const allSitesAccessCheckbox = document.getElementById(
+  "all-sites-access"
+) as HTMLInputElement;
+const allSitesStatusElement = document.getElementById(
+  "all-sites-status"
+) as HTMLDivElement;
+
+const ALL_SITES_ORIGIN = "*://*/*";
+
+function showAllSitesStatus(message: string, isError = false): void {
+  allSitesStatusElement.textContent = message;
+  allSitesStatusElement.style.color = isError ? "red" : "#4caf50";
+  setTimeout(() => {
+    allSitesStatusElement.textContent = "";
+    allSitesStatusElement.style.color = "";
+  }, 4000);
+}
+
+async function loadAllSitesAccess(): Promise<void> {
+  try {
+    const granted = await browser.permissions.contains({
+      origins: [ALL_SITES_ORIGIN],
+    });
+    allSitesAccessCheckbox.checked = granted;
+  } catch (error) {
+    console.error("Error loading site access permission:", error);
+  }
+}
+
+async function handleAllSitesAccessToggle(event: Event): Promise<void> {
+  if (!event.isTrusted) {
+    return;
+  }
+
+  const checkbox = event.target as HTMLInputElement;
+  const enable = checkbox.checked;
+
+  try {
+    if (enable) {
+      const granted = await browser.permissions.request({
+        origins: [ALL_SITES_ORIGIN],
+      });
+      if (!granted) {
+        checkbox.checked = false;
+        showAllSitesStatus(
+          "Chrome did not grant access to all sites.",
+          true
+        );
+        return;
+      }
+      showAllSitesStatus("Access to all sites enabled.");
+      return;
+    }
+
+    const removed = await browser.permissions.remove({
+      origins: [ALL_SITES_ORIGIN],
+    });
+    if (!removed) {
+      checkbox.checked = true;
+      showAllSitesStatus(
+        "Could not remove site access. Change it in chrome://extensions if needed.",
+        true
+      );
+      return;
+    }
+    showAllSitesStatus("Access to all sites disabled.");
+  } catch (error) {
+    console.error("Error updating site access permission:", error);
+    checkbox.checked = !enable;
+    showAllSitesStatus("Failed to update site access permission.", true);
+  }
+}
 
 /**
  * Creates the tool settings UI
@@ -557,6 +629,13 @@ saveDomainListsButton.addEventListener("click", saveDomainLists);
 saveWsUrlsButton.addEventListener("click", saveWsUrls);
 saveBrowserIdButton.addEventListener("click", saveBrowserIdentity);
 clearAuditLogButton.addEventListener("click", handleClearAuditLog);
+allSitesAccessCheckbox.addEventListener("change", handleAllSitesAccessToggle);
+browser.permissions.onAdded.addListener(() => {
+  void loadAllSitesAccess();
+});
+browser.permissions.onRemoved.addListener(() => {
+  void loadAllSitesAccess();
+});
 document.addEventListener("DOMContentLoaded", () => {
   const versionEl = document.getElementById("extension-version");
   if (versionEl) {
@@ -566,6 +645,7 @@ document.addEventListener("DOMContentLoaded", () => {
   createToolSettingsUI();
   loadDomainLists();
   loadWsUrls();
+  loadAllSitesAccess();
   loadAuditLog();
   initializeCollapsibleSections();
 

@@ -1,6 +1,6 @@
 import type { QueryDomExtensionMessage, ServerMessageRequest } from "@browser-control-mcp/common";
 import { browser } from "./browser";
-import { WebsocketClient } from "./client";
+import type { ServerTransport } from "./server-transport";
 import {
   isCommandAllowed,
   isDomainInDenyList,
@@ -23,9 +23,9 @@ const MAX_CONTENT_LENGTH = 50_000;
 type TabGroupColor = chrome.tabGroups.Color;
 
 export class MessageHandler {
-  private client: WebsocketClient;
+  private client: ServerTransport;
 
-  constructor(client: WebsocketClient) {
+  constructor(client: ServerTransport) {
     this.client = client;
   }
 
