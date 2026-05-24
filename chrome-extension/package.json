@@ -1,6 +1,6 @@
 {
   "name": "chrome-extension",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "private": true,
   "scripts": {
     "build": "esbuild background.ts --bundle --outfile=dist/background.js --format=iife --platform=browser && esbuild options.ts --bundle --outfile=dist/options.js --format=iife --platform=browser",

@@ -1,20 +1,34 @@
 #!/usr/bin/env bash
-# AMO source archive: firefox-extension/ + common/ (+ README at zip root).
+# AMO source archive: manifest.json at zip root, dist/ included, common/ sibling.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
+FF="$REPO/firefox-extension"
 OUT="$REPO/browser-control-mcp-firefox-source.zip"
+STAGING="$(mktemp -d)"
+trap 'rm -rf "$STAGING"' EXIT
 
-cd "$REPO"
+npm run build --prefix "$REPO/common"
+npm run build --prefix "$FF"
+
+rsync -a \
+  --exclude node_modules \
+  --exclude .nx \
+  --exclude SOURCE_CODE_README.txt \
+  --exclude pack-sources.sh \
+  --exclude .DS_Store \
+  "$FF/" "$STAGING/"
+
+rsync -a \
+  --exclude node_modules \
+  --exclude dist \
+  --exclude .DS_Store \
+  "$REPO/common/" "$STAGING/common/"
+
+cp "$FF/SOURCE_CODE_README.txt" "$STAGING/SOURCE_CODE_README.txt"
+
+cd "$STAGING"
 rm -f "$OUT"
-
-zip -r "$OUT" common \
-  -x 'common/node_modules/*' 'common/dist/*' '*/.DS_Store'
-
-zip -r "$OUT" firefox-extension \
-  -x 'firefox-extension/node_modules/*' 'firefox-extension/dist/*' \
-     'firefox-extension/.nx/*' 'firefox-extension/SOURCE_CODE_README.txt' '*/.DS_Store'
-
-zip -j "$OUT" firefox-extension/SOURCE_CODE_README.txt
+zip -r "$OUT" . -x '*.DS_Store'
 
 echo "Created $OUT"

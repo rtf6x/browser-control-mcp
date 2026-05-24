@@ -1,31 +1,29 @@
 Browser Control MCP (Personal) — source code for AMO review
-Version: 1.6.0
+Version: 1.6.1
 
 Requirements
-- Node.js 22 or newer (MCP server); Node.js 18+ for extension build
+- Node.js 18 or newer
 - npm
 
-Directory layout
-- firefox-extension/  — add-on source (TypeScript, HTML, manifest)
-- common/             — shared types, WebSocket client, browserId handshake, wire envelope
+Directory layout (archive root = add-on source)
+- manifest.json, *.ts, options.html, assets/  — add-on source
+- dist/                                         — esbuild output referenced by manifest (rebuilt in step 4)
+- common/                                       — shared dependency (@browser-control-mcp/common)
 
 Build instructions
-1. cd firefox-extension
-2. npm install
-3. npm run build
+1. Unzip this archive to a directory (manifest.json must be at that directory root).
+2. cd common && npm install && cd ..
+3. npm install
+4. npm run build
 
 Expected output
 - dist/background.js  (esbuild bundle)
 - dist/options.js     (esbuild bundle)
 
-Pack XPI (optional verification)
+Verify XPI (optional)
 - npm run pack-xpi
-- Creates ../browser-control-mcp-dev.xpi and ../browser-control-mcp-firefox-source.zip (AMO source archive)
-
-Source archive layout (browser-control-mcp-firefox-source.zip)
-- SOURCE_CODE_README.txt  — this file, at archive root
-- firefox-extension/      — add-on TypeScript sources (no node_modules, no dist/)
-- common/                 — shared dependency sources (no node_modules, no dist/)
+- Creates browser-control-mcp-dev.xpi in the parent directory when run from a full git checkout;
+  from this archive alone, zip manifest.json dist options.html assets manually after build.
 
 Build tool
 - esbuild 0.25.1
@@ -33,7 +31,7 @@ Build tool
            esbuild options.ts --bundle --outfile=dist/options.js
 
 Notes
-- v1.6: extension registers browserId on WebSocket connect; localhost trust by default
+- Extension registers browserId on WebSocket connect; localhost trust by default
 - HTML/CSS (options.html) are not processed by a build tool
-- esbuild bundles `common/` via the local `@browser-control-mcp/common` package (sources included in this archive)
+- esbuild bundles common/ via the local file dependency in package.json
 - Tests (optional): npm test

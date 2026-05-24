@@ -8,11 +8,12 @@ Personal fork of [Browser Control MCP](https://github.com/eyalzh/browser-control
 
 | Version | Notes |
 |---------|--------|
-| **[v1.6.0](https://github.com/rtf6x/browser-control-mcp/releases/tag/v1.6.0)** (current) | Multi-browser `browserId`, WebSocket URLs, ports 18789/18790, localhost trust, Chrome + Firefox extensions, `list-connected-browsers` |
+| **[v1.6.1](https://github.com/rtf6x/browser-control-mcp/releases/tag/v1.6.1)** (current) | AMO source archive fix, multi-browser `browserId`, WebSocket URLs, ports 18789/18790 |
+| [v1.6.0](https://github.com/rtf6x/browser-control-mcp/releases/tag/v1.6.0) | First v1.6 release (superseded for AMO re-upload) |
 
 **Extensions:** build from this repo — `npm run pack:extensions` (Firefox XPI + AMO source zip + Chrome zip), or load unpacked after `npm run build`.
 
-**MCP server:** `git checkout v1.6.0` (or `main`), then `npm run docker:up`.
+**MCP server:** `git checkout v1.6.1` (or `main`), then `npm run docker:up`.
 
 ## What it does
 

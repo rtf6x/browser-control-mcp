@@ -1,7 +1,7 @@
 {
     "manifest_version": 2,
     "name": "Browser Control MCP (Personal)",
-    "version": "1.6.0",
+    "version": "1.6.1",
     "description": "Local MCP server control for Firefox. Open extension options after install for setup steps.",
     "browser_specific_settings": {
         "gecko": {
