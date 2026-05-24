@@ -4,12 +4,9 @@
 
 import { ServerMessageRequest } from "@browser-control-mcp/common/server-messages";
 import { normalizeBrowserId } from "@browser-control-mcp/common/handshake-messages";
-import {
-  DEFAULT_WS_URL,
-  portToWsUrl,
-} from "@browser-control-mcp/common/ws-endpoints";
-import { DEFAULT_WS_PORT } from "@browser-control-mcp/common/ports";
+import { DEFAULT_WS_URL } from "@browser-control-mcp/common/ws-endpoints";
 import { browser } from "./browser";
+
 const AUDIT_LOG_SIZE_LIMIT = 100;
 
 const PAGE_TOOLS_DISABLED_BY_DEFAULT = new Set([
@@ -103,14 +100,11 @@ export interface AuditLogEntry {
 }
 
 export interface ExtensionConfig {
-  secret?: string;
   browserId?: string;
   label?: string;
   toolSettings?: ToolSettings;
   domainDenyList?: string[];
   wsUrls?: string[];
-  /** @deprecated Migrated to {@link wsUrls} on read. */
-  ports?: number[];
   auditLog?: AuditLogEntry[];
 }
 
@@ -126,38 +120,31 @@ export function getDefaultToolSettings(): ToolSettings {
   return settings;
 }
 
-function migrateWsUrls(config: ExtensionConfig): boolean {
-  if (config.wsUrls?.length) {
-    if (config.ports !== undefined) {
-      delete config.ports;
-      return true;
+function stripLegacyFields(config: Record<string, unknown>): boolean {
+  let dirty = false;
+  for (const key of ["secret", "ports"] as const) {
+    if (key in config) {
+      delete config[key];
+      dirty = true;
     }
-    return false;
   }
-
-  if (config.ports?.length) {
-    config.wsUrls = config.ports.map((p) =>
-      portToWsUrl(p === 8089 ? DEFAULT_WS_PORT : p)
-    );
-    delete config.ports;
-    return true;
-  }
-
-  config.wsUrls = [DEFAULT_WS_URL];
-  return true;
+  return dirty;
 }
 
 export async function getConfig(): Promise<ExtensionConfig> {
   const configObj = await browser.storage.local.get("config");
-  const config: ExtensionConfig = configObj.config || { secret: "" };
+  const stored = (configObj.config ?? {}) as Record<string, unknown>;
+  const config = stored as ExtensionConfig;
+
+  let dirty = stripLegacyFields(stored);
 
   config.toolSettings = {
     ...getDefaultToolSettings(),
     ...config.toolSettings,
   };
 
-  let dirty = false;
-  if (migrateWsUrls(config)) {
+  if (!config.wsUrls?.length) {
+    config.wsUrls = [DEFAULT_WS_URL];
     dirty = true;
   }
 
@@ -175,11 +162,6 @@ export async function getConfig(): Promise<ExtensionConfig> {
 
 export async function saveConfig(config: ExtensionConfig): Promise<void> {
   await browser.storage.local.set({ config });
-}
-
-export async function getSecret(): Promise<string> {
-  const config = await getConfig();
-  return config.secret ?? "";
 }
 
 export async function getBrowserId(): Promise<string> {
@@ -269,7 +251,6 @@ export async function getWsUrls(): Promise<string[]> {
 export async function setWsUrls(wsUrls: string[]): Promise<void> {
   const config = await getConfig();
   config.wsUrls = wsUrls;
-  delete config.ports;
   await saveConfig(config);
 }
 

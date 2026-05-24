@@ -87,15 +87,13 @@ OpenCode / Claude  ──MCP (HTTP :18790 or stdio)──►  mcp-server
 
 **Default: localhost trust mode** — no `EXTENSION_SECRET` required. Server binds to `127.0.0.1`; extensions connect to `ws://127.0.0.1:18789`.
 
-Optional: set `EXTENSION_SECRET` in the MCP server env (and legacy secret in extension storage) to enable HMAC signing on WebSocket messages.
+Optional: set `EXTENSION_SECRET` in the MCP server env to enable HMAC signing on WebSocket messages.
 
 ### Extension configuration (Options page)
 
-- **Browser ID** — unique per install (`browser-a1b2c3d4`, `browser-firefox-work`, …)
+- **Browser ID** — unique per install (`chrome`, `browser-a1b2c3d4`, …)
 - **WebSocket URL** — default `ws://127.0.0.1:18789` (same for all installs on one server)
 - **Tool toggles**, domain deny list, audit log
-
-No secret field in the UI. Upgrades from older versions may still have a secret in `browser.storage.local` — background passes it automatically if present.
 
 ### Development notes
 

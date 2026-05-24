@@ -7,7 +7,7 @@ export function portToWsUrl(port: number): string {
   return `ws://127.0.0.1:${port}`;
 }
 
-/** Normalize and validate a WebSocket URL (accepts bare port for legacy input). */
+/** Normalize and validate a WebSocket URL (bare port accepted as shorthand for localhost). */
 export function normalizeWsUrl(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) {

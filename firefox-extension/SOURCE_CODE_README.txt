@@ -28,7 +28,7 @@ Build tool
            esbuild options.ts --bundle --outfile=dist/options.js
 
 Notes
-- v1.6: extension registers browserId on WebSocket connect; no secret required by default
+- v1.6: extension registers browserId on WebSocket connect; localhost trust by default
 - HTML/CSS (options.html) are not processed by a build tool
 - No runtime npm dependencies in the shipped XPI
 - Tests (optional): npm test

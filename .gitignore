@@ -55,6 +55,3 @@ dist
 web-ext-artifacts/
 
 .DS_Store
-
-# Obsolete local multi-instance Docker compose (pre browserId model)
-docker-compose.instances.yml

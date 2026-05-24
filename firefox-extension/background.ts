@@ -11,10 +11,9 @@ browser.runtime.onInstalled.addListener((details) => {
 function initClient(
   wsUrl: string,
   browserId: string,
-  secret: string,
   label?: string
 ) {
-  const wsClient = createWebsocketClient(wsUrl, browserId, secret, label, "firefox");
+  const wsClient = createWebsocketClient(wsUrl, browserId, "", label, "firefox");
   const messageHandler = new MessageHandler(wsClient);
 
   wsClient.connect();
@@ -41,7 +40,7 @@ getConfig()
       return;
     }
     for (const wsUrl of wsUrlList) {
-      initClient(wsUrl, config.browserId!, config.secret ?? "", config.label);
+      initClient(wsUrl, config.browserId!, config.label);
     }
     console.log("Browser extension initialized");
   })

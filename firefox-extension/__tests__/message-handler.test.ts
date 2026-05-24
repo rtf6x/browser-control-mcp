@@ -35,7 +35,6 @@ describe("MessageHandler", () => {
 
     // Mock browser.storage.local.get to return default config
     const defaultConfig: ExtensionConfig = {
-      secret: "test-secret",
       toolSettings: {
         "open-browser-tab": true,
         "close-browser-tabs": true,
@@ -62,7 +61,6 @@ describe("MessageHandler", () => {
     it("should throw an error if command is not allowed", async () => {
       // Arrange
       const configWithDisabledOpenTab: ExtensionConfig = {
-        secret: "test-secret",
         toolSettings: {
           "open-browser-tab": false, // Disable open-tab command
           "close-browser-tabs": true,
@@ -136,7 +134,6 @@ describe("MessageHandler", () => {
       it("should throw an error if domain is in deny list", async () => {
         // Arrange
         const configWithDenyList: ExtensionConfig = {
-          secret: "test-secret",
           toolSettings: {
             "open-browser-tab": true,
             "close-browser-tabs": true,
@@ -170,7 +167,6 @@ describe("MessageHandler", () => {
       it("should open a new tab in the domain is not in the deny list", async () => {
         // Arrange
         const configWithDenyList: ExtensionConfig = {
-          secret: "test-secret",
           toolSettings: {
             "open-browser-tab": true,
             "close-browser-tabs": true,
@@ -392,7 +388,6 @@ describe("MessageHandler", () => {
       it("should throw an error if tab URL domain is in deny list", async () => {
         // Arrange
         const configWithDenyList: ExtensionConfig = {
-          secret: "test-secret",
           toolSettings: {
             "open-browser-tab": true,
             "close-browser-tabs": true,

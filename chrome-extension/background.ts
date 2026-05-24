@@ -16,10 +16,9 @@ const clients: WebsocketClient[] = [];
 function initClient(
   wsUrl: string,
   browserId: string,
-  secret: string,
   label?: string
 ) {
-  const wsClient = createWebsocketClient(wsUrl, browserId, secret, label, "chrome");
+  const wsClient = createWebsocketClient(wsUrl, browserId, "", label, "chrome");
   const messageHandler = new MessageHandler(wsClient);
 
   wsClient.connect();
@@ -60,7 +59,7 @@ initExtension()
       return;
     }
     for (const wsUrl of config.wsUrls!) {
-      initClient(wsUrl, config.browserId!, config.secret ?? "", config.label);
+      initClient(wsUrl, config.browserId!, config.label);
     }
     await setupReconnectAlarm();
     console.log("Browser Control MCP (Chrome) initialized");

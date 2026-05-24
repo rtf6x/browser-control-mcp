@@ -8,12 +8,11 @@ Personal fork of [Browser Control MCP](https://github.com/eyalzh/browser-control
 
 | Version | Notes |
 |---------|--------|
-| **v1.6.0** (current) | Multi-browser `browserId`, WebSocket URLs, ports 18789/18790, localhost trust, `list-connected-browsers` |
-| [v1.5.2](https://github.com/rtf6x/browser-control-mcp/releases/tag/v1.5.2) | OpenCode/Docker, page tools, AMO-signed Firefox XPI (pre–multi-browser) |
+| **[v1.6.0](https://github.com/rtf6x/browser-control-mcp/releases/tag/v1.6.0)** (current) | Multi-browser `browserId`, WebSocket URLs, ports 18789/18790, localhost trust, Chrome + Firefox extensions, `list-connected-browsers` |
 
-**Firefox extension:** build from this repo (`firefox-extension/` → `npm run pack-xpi`) or load temporary add-on. The [v1.5.2 XPI](https://github.com/rtf6x/browser-control-mcp/releases/download/v1.5.2/61b1bfecda35459f972e-1.5.2.xpi) does **not** include v1.6 multi-browser handshake — use a v1.6 build until a new signed release is published.
+**Extensions:** build from this repo — `firefox-extension/` → `npm run pack-xpi`, `chrome-extension/` → `npm run pack-zip`, or load unpacked after `npm run build`.
 
-**MCP server:** clone at `v1.6.0` (when tagged) or `main`, then `npm run docker:up`.
+**MCP server:** `git checkout v1.6.0` (or `main`), then `npm run docker:up`.
 
 ## What it does
 
@@ -105,7 +104,7 @@ The three page-inspection tools (`evaluate-script`, `query-dom`, `get-console-me
 Compared to full browser-automation MCP servers, this stack is designed for use with a personal browser:
 
 - **Localhost-only** — WebSocket on `127.0.0.1:18789`; no shared secret by default
-- Optional **`EXTENSION_SECRET`** on the server for HMAC signing (legacy installs may still have a secret in extension storage)
+- Optional **`EXTENSION_SECRET`** on the server for HMAC signing
 - Per-tool toggles and an audit log in the extension options
 - Host permissions and domain consent before reading or scripting pages
 - No analytics or remote data collection (`data_collection_permissions: none`)
@@ -317,7 +316,7 @@ This fork is based on [eyalzh/browser-control-mcp](https://github.com/eyalzh/bro
 
 Repository: [github.com/rtf6x/browser-control-mcp](https://github.com/rtf6x/browser-control-mcp)
 
-**Fork additions (v1.6):** multi-browser `browserId` routing, `list-connected-browsers`, localhost trust mode, Chrome extension, HTTP MCP for OpenCode, Docker, page-inspection tools.
+**Fork additions:** multi-browser `browserId` routing, `list-connected-browsers`, localhost trust mode, Chrome extension, HTTP MCP for OpenCode, Docker, page-inspection tools, full WebSocket URLs in extension options.
 
 ## License
 
