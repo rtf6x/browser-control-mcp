@@ -10,7 +10,7 @@ Personal fork of [Browser Control MCP](https://github.com/eyalzh/browser-control
 |---------|--------|
 | **[v1.6.0](https://github.com/rtf6x/browser-control-mcp/releases/tag/v1.6.0)** (current) | Multi-browser `browserId`, WebSocket URLs, ports 18789/18790, localhost trust, Chrome + Firefox extensions, `list-connected-browsers` |
 
-**Extensions:** build from this repo — `firefox-extension/` → `npm run pack-xpi`, `chrome-extension/` → `npm run pack-zip`, or load unpacked after `npm run build`.
+**Extensions:** build from this repo — `npm run pack:extensions` (Firefox XPI + AMO source zip + Chrome zip), or load unpacked after `npm run build`.
 
 **MCP server:** `git checkout v1.6.0` (or `main`), then `npm run docker:up`.
 
@@ -125,9 +125,9 @@ npm run build
 
 ### 2. Install a browser extension
 
-**Firefox** — `about:debugging` → Load Temporary Add-on → `firefox-extension/manifest.json`, or `npm run pack-xpi` in `firefox-extension/`.
+**Firefox** — `about:debugging` → Load Temporary Add-on → `firefox-extension/manifest.json`, or `npm run pack:extensions` (XPI + AMO source zip).
 
-**Chrome** — `chrome://extensions` → Developer mode → Load unpacked → `chrome-extension/` (run `npm run build` there first).
+**Chrome** — `chrome://extensions` → Developer mode → Load unpacked → `chrome-extension/`, or use `browser-control-mcp-chrome.zip` from `npm run pack:extensions`.
 
 Open extension **Options** → set a unique **Browser ID** (auto-generated on first run). WebSocket URL **`ws://127.0.0.1:18789`** (default; use `wss://…` for remote servers).
 
@@ -255,14 +255,12 @@ docker run -d --name browser-control-mcp --restart unless-stopped \
 npm install              # install all packages
 npm run build            # build extension + MCP server
 
-# Firefox extension
-cd firefox-extension && npm run build
-cd firefox-extension && npm run pack-xpi
-cd firefox-extension && npm test
+# Extension packages (Firefox XPI + AMO source + Chrome zip)
+npm run pack:extensions
 
-# Chrome extension
-cd chrome-extension && npm run build
-cd chrome-extension && npm run pack-zip
+# Firefox only
+cd firefox-extension && npm run pack-xpi   # also creates ../browser-control-mcp-firefox-source.zip
+cd firefox-extension && npm test
 
 # MCP server
 cd mcp-server && npm start          # HTTP (default)
