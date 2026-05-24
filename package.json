@@ -1,10 +1,10 @@
 {
   "name": "browser-control-mcp",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "private": true,
   "scripts": {
-    "postinstall": "npm install --prefix mcp-server && npm install --prefix firefox-extension",
-    "build": "nx run-many --target=build --all --parallel",
+    "postinstall": "npm install --prefix common && npm install --prefix mcp-server && npm install --prefix firefox-extension && npm install --prefix chrome-extension",
+    "build": "npm run build --prefix common && nx run-many --target=build --all --parallel && npm run build --prefix chrome-extension",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f browser-control-mcp"

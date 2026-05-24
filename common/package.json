@@ -1,0 +1,23 @@
+{
+  "name": "@browser-control-mcp/common",
+  "version": "1.6.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./server-messages": "./dist/server-messages.js",
+    "./extension-messages": "./dist/extension-messages.js",
+    "./handshake-messages": "./dist/handshake-messages.js",
+    "./wire-envelope": "./dist/wire-envelope.js",
+    "./ports": "./dist/ports.js",
+    "./ws-endpoints": "./dist/ws-endpoints.js",
+    "./websocket-client": "./dist/websocket-client.js"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  }
+}

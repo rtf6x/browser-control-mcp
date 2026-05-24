@@ -1,48 +1,93 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { BrowserAPI } from "./browser-api";
+import { BROWSER_ID_PATTERN } from "@browser-control-mcp/common/handshake-messages";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 
 dayjs.extend(relativeTime);
 
+const browserIdSchema = z
+  .string()
+  .regex(BROWSER_ID_PATTERN)
+  .optional()
+  .describe(
+    "Target browser ID. Required when multiple browsers are connected; optional if exactly one is connected. Use list-connected-browsers to discover IDs."
+  );
+
 export function createBrowserControlServer(browserApi: BrowserAPI): McpServer {
   const mcpServer = new McpServer({
     name: "BrowserControl",
-    version: "1.5.1",
+    version: "1.6.0",
   });
+
+  mcpServer.tool(
+    "list-connected-browsers",
+    "List browser extension installs currently connected to this MCP server. Use browserId from the result in other tools.",
+    {},
+    async () => {
+      const browsers = browserApi.listConnectedBrowsers();
+      if (browsers.length === 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "No browsers connected. Ensure the extension is enabled, WebSocket URL matches the MCP server (default ws://127.0.0.1:18789), and browserId is registered.",
+            },
+          ],
+        };
+      }
+      return {
+        content: browsers.map((b) => ({
+          type: "text" as const,
+          text: [
+            `browserId=${b.browserId}`,
+            b.label ? `label="${b.label}"` : null,
+            b.browserType ? `type=${b.browserType}` : null,
+            `connected=${b.connected}`,
+          ]
+            .filter(Boolean)
+            .join(", "),
+        })),
+      };
+    }
+  );
 
   mcpServer.tool(
     "open-browser-tab",
     "Open a new tab in the user's browser (useful when the user asks to open a website)",
-    { url: z.string() },
-    async ({ url }) => {
-      const openedTabId = await browserApi.openTab(url);
+    { browserId: browserIdSchema, url: z.string() },
+    async ({ browserId, url }) => {
+      const id = browserApi.resolveBrowserId(browserId);
+      const openedTabId = await browserApi.openTab(id, url);
       if (openedTabId !== undefined) {
         return {
           content: [
             {
               type: "text",
-              text: `${url} opened in tab id ${openedTabId}`,
+              text: `[${id}] ${url} opened in tab id ${openedTabId}`,
             },
           ],
         };
-      } else {
-        return {
-          content: [{ type: "text", text: "Failed to open tab", isError: true }],
-        };
       }
+      return {
+        content: [{ type: "text", text: "Failed to open tab", isError: true }],
+      };
     }
   );
 
   mcpServer.tool(
     "close-browser-tabs",
     "Close tabs in the user's browser by tab IDs",
-    { tabIds: z.array(z.number()) },
-    async ({ tabIds }) => {
-      await browserApi.closeTabs(tabIds);
+    {
+      browserId: browserIdSchema,
+      tabIds: z.array(z.number()),
+    },
+    async ({ browserId, tabIds }) => {
+      const id = browserApi.resolveBrowserId(browserId);
+      await browserApi.closeTabs(id, tabIds);
       return {
-        content: [{ type: "text", text: "Closed tabs" }],
+        content: [{ type: "text", text: `[${id}] Closed tabs` }],
       };
     }
   );
@@ -51,13 +96,23 @@ export function createBrowserControlServer(browserApi: BrowserAPI): McpServer {
     "get-list-of-open-tabs",
     "Get the list of open tabs in the user's browser. Use offset and limit parameters for pagination when there are many tabs.",
     {
-      offset: z.number().int().min(0).default(0).describe("Starting index for pagination (0-based, must be >= 0)"),
-      limit: z.number().default(100).describe("Maximum number of tabs to return (default: 100, max: 500)"),
+      browserId: browserIdSchema,
+      offset: z
+        .number()
+        .int()
+        .min(0)
+        .default(0)
+        .describe("Starting index for pagination (0-based, must be >= 0)"),
+      limit: z
+        .number()
+        .default(100)
+        .describe("Maximum number of tabs to return (default: 100, max: 500)"),
     },
-    async ({ offset, limit }) => {
+    async ({ browserId, offset, limit }) => {
+      const id = browserApi.resolveBrowserId(browserId);
       const effectiveLimit = Math.min(Math.max(1, limit), 500);
 
-      const openTabs = await browserApi.getTabList();
+      const openTabs = await browserApi.getTabList(id);
       const totalTabs = openTabs.length;
 
       const paginatedTabs = openTabs.slice(offset, offset + effectiveLimit);
@@ -65,7 +120,7 @@ export function createBrowserControlServer(browserApi: BrowserAPI): McpServer {
 
       const paginationInfo = {
         type: "text" as const,
-        text: `Showing tabs ${offset + 1}-${offset + paginatedTabs.length} of ${totalTabs} total tabs${hasMore ? ` (use offset=${offset + effectiveLimit} to see more)` : ""}`,
+        text: `[${id}] Showing tabs ${offset + 1}-${offset + paginatedTabs.length} of ${totalTabs} total tabs${hasMore ? ` (use offset=${offset + effectiveLimit} to see more)` : ""}`,
       };
 
       const tabContent = paginatedTabs.map((tab) => {
@@ -88,9 +143,14 @@ export function createBrowserControlServer(browserApi: BrowserAPI): McpServer {
   mcpServer.tool(
     "get-recent-browser-history",
     "Get the list of recent browser history (to get all, don't use searchQuery)",
-    { searchQuery: z.string().optional() },
-    async ({ searchQuery }) => {
+    {
+      browserId: browserIdSchema,
+      searchQuery: z.string().optional(),
+    },
+    async ({ browserId, searchQuery }) => {
+      const id = browserApi.resolveBrowserId(browserId);
       const browserHistory = await browserApi.getBrowserRecentHistory(
+        id,
         searchQuery
       );
       if (browserHistory.length > 0) {
@@ -102,14 +162,15 @@ export function createBrowserControlServer(browserApi: BrowserAPI): McpServer {
             }
             return {
               type: "text",
-              text: `url=${item.url}, title="${item.title}", lastVisitTime=${lastVisited}`,
+              text: `[${id}] url=${item.url}, title="${item.title}", lastVisitTime=${lastVisited}`,
             };
           }),
         };
-      } else {
-        const hint = searchQuery ? "Try without a searchQuery" : "";
-        return { content: [{ type: "text", text: `No history found. ${hint}` }] };
       }
+      const hint = searchQuery ? "Try without a searchQuery" : "";
+      return {
+        content: [{ type: "text", text: `[${id}] No history found. ${hint}` }],
+      };
     }
   );
 
@@ -119,17 +180,20 @@ export function createBrowserControlServer(browserApi: BrowserAPI): McpServer {
     Get the full text content of the webpage and the list of links in the webpage, by tab ID. 
     Use "offset" only for larger documents when the first call was truncated and if you require more content in order to assist the user.
   `,
-    { tabId: z.number(), offset: z.number().default(0) },
-    async ({ tabId, offset }) => {
-      const content = await browserApi.getTabContent(tabId, offset);
+    {
+      browserId: browserIdSchema,
+      tabId: z.number(),
+      offset: z.number().default(0),
+    },
+    async ({ browserId, tabId, offset }) => {
+      const id = browserApi.resolveBrowserId(browserId);
+      const content = await browserApi.getTabContent(id, tabId, offset);
       let links: { type: "text"; text: string }[] = [];
       if (offset === 0) {
-        links = content.links.map((link: { text: string; url: string }) => {
-          return {
-            type: "text",
-            text: `Link text: ${link.text}, Link URL: ${link.url}`,
-          };
-        });
+        links = content.links.map((link: { text: string; url: string }) => ({
+          type: "text",
+          text: `Link text: ${link.text}, Link URL: ${link.url}`,
+        }));
       }
 
       let text = content.fullText;
@@ -155,12 +219,16 @@ export function createBrowserControlServer(browserApi: BrowserAPI): McpServer {
   mcpServer.tool(
     "reorder-browser-tabs",
     "Change the order of open browser tabs",
-    { tabOrder: z.array(z.number()) },
-    async ({ tabOrder }) => {
-      const newOrder = await browserApi.reorderTabs(tabOrder);
+    {
+      browserId: browserIdSchema,
+      tabOrder: z.array(z.number()),
+    },
+    async ({ browserId, tabOrder }) => {
+      const id = browserApi.resolveBrowserId(browserId);
+      const newOrder = await browserApi.reorderTabs(id, tabOrder);
       return {
         content: [
-          { type: "text", text: `Tabs reordered: ${newOrder.join(", ")}` },
+          { type: "text", text: `[${id}] Tabs reordered: ${newOrder.join(", ")}` },
         ],
       };
     }
@@ -169,14 +237,23 @@ export function createBrowserControlServer(browserApi: BrowserAPI): McpServer {
   mcpServer.tool(
     "find-highlight-in-browser-tab",
     "Find and highlight text in a browser tab (use a query phrase that exists in the web content)",
-    { tabId: z.number(), queryPhrase: z.string() },
-    async ({ tabId, queryPhrase }) => {
-      const noOfResults = await browserApi.findHighlight(tabId, queryPhrase);
+    {
+      browserId: browserIdSchema,
+      tabId: z.number(),
+      queryPhrase: z.string(),
+    },
+    async ({ browserId, tabId, queryPhrase }) => {
+      const id = browserApi.resolveBrowserId(browserId);
+      const noOfResults = await browserApi.findHighlight(
+        id,
+        tabId,
+        queryPhrase
+      );
       return {
         content: [
           {
             type: "text",
-            text: `Number of results found and highlighted in the tab: ${noOfResults}`,
+            text: `[${id}] Number of results found and highlighted in the tab: ${noOfResults}`,
           },
         ],
       };
@@ -187,6 +264,7 @@ export function createBrowserControlServer(browserApi: BrowserAPI): McpServer {
     "group-browser-tabs",
     "Organize opened browser tabs in a new tab group",
     {
+      browserId: browserIdSchema,
       tabIds: z.array(z.number()),
       isCollapsed: z.boolean().default(false),
       groupColor: z
@@ -204,8 +282,10 @@ export function createBrowserControlServer(browserApi: BrowserAPI): McpServer {
         .default("grey"),
       groupTitle: z.string().default("New Group"),
     },
-    async ({ tabIds, isCollapsed, groupColor, groupTitle }) => {
+    async ({ browserId, tabIds, isCollapsed, groupColor, groupTitle }) => {
+      const id = browserApi.resolveBrowserId(browserId);
       const groupId = await browserApi.groupTabs(
+        id,
         tabIds,
         isCollapsed,
         groupColor,
@@ -215,7 +295,7 @@ export function createBrowserControlServer(browserApi: BrowserAPI): McpServer {
         content: [
           {
             type: "text",
-            text: `Created tab group "${groupTitle}" with ${tabIds.length} tabs (group ID: ${groupId})`,
+            text: `[${id}] Created tab group "${groupTitle}" with ${tabIds.length} tabs (group ID: ${groupId})`,
           },
         ],
       };
@@ -226,6 +306,7 @@ export function createBrowserControlServer(browserApi: BrowserAPI): McpServer {
     "evaluate-script-in-tab",
     "Evaluate a JavaScript function in a browser tab. The function must be JSON-serializable. Example function: () => document.title",
     {
+      browserId: browserIdSchema,
       tabId: z.number(),
       function: z
         .string()
@@ -237,8 +318,9 @@ export function createBrowserControlServer(browserApi: BrowserAPI): McpServer {
         .optional()
         .describe("Optional arguments passed to the function"),
     },
-    async ({ tabId, function: fn, args }) => {
-      const result = await browserApi.evaluateScript(tabId, fn, args);
+    async ({ browserId, tabId, function: fn, args }) => {
+      const id = browserApi.resolveBrowserId(browserId);
+      const result = await browserApi.evaluateScript(id, tabId, fn, args);
       if (
         result &&
         typeof result === "object" &&
@@ -265,6 +347,7 @@ export function createBrowserControlServer(browserApi: BrowserAPI): McpServer {
     "query-dom-in-tab",
     "Query DOM elements in a browser tab using a CSS selector. Modes: text (innerText of first match), html (outerHTML fragment), list (summary of all matches).",
     {
+      browserId: browserIdSchema,
       tabId: z.number(),
       selector: z.string().describe("CSS selector, e.g. #main or .article h1"),
       mode: z
@@ -280,8 +363,10 @@ export function createBrowserControlServer(browserApi: BrowserAPI): McpServer {
         .default(5000)
         .describe("Max HTML characters per element in html/list modes"),
     },
-    async ({ tabId, selector, mode, limit, maxHtmlLength }) => {
+    async ({ browserId, tabId, selector, mode, limit, maxHtmlLength }) => {
+      const id = browserApi.resolveBrowserId(browserId);
       const result = await browserApi.queryDom(
+        id,
         tabId,
         selector,
         mode,
@@ -298,6 +383,7 @@ export function createBrowserControlServer(browserApi: BrowserAPI): McpServer {
     "get-console-messages-in-tab",
     "Read console.log/info/warn/error/debug messages from a browser tab. Installs a console interceptor on first use. Re-run after page navigation to capture logs on the new document.",
     {
+      browserId: browserIdSchema,
       tabId: z.number(),
       clear: z
         .boolean()
@@ -312,8 +398,10 @@ export function createBrowserControlServer(browserApi: BrowserAPI): McpServer {
         .default(100)
         .describe("Maximum number of messages to return"),
     },
-    async ({ tabId, clear, level, limit }) => {
+    async ({ browserId, tabId, clear, level, limit }) => {
+      const id = browserApi.resolveBrowserId(browserId);
       const result = await browserApi.getConsoleMessages(
+        id,
         tabId,
         clear,
         level,

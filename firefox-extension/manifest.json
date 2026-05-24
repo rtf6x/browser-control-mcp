@@ -1,8 +1,8 @@
 {
     "manifest_version": 2,
     "name": "Browser Control MCP (Personal)",
-    "version": "1.5.2",
-    "description": "Personal fork: local MCP server control for Firefox (tabs, history, page tools). Not affiliated with the AMO add-on.",
+    "version": "1.6.0",
+    "description": "Local MCP server control for Firefox. Open extension options after install for setup steps.",
     "browser_specific_settings": {
         "gecko": {
             "id": "browser-control-mcp-personal@rtf6x.local",

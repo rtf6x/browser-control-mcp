@@ -25,8 +25,11 @@ describe("MessageHandler", () => {
 
     // Create a new instance of WebsocketClient and MessageHandler
     mockClient = new WebsocketClient(
-      8080,
-      "test-secret"
+      "ws://127.0.0.1:8080",
+      "",
+      async () => "",
+      undefined,
+      "browser-test"
     ) as jest.Mocked<WebsocketClient>;
     messageHandler = new MessageHandler(mockClient);
 
@@ -46,7 +49,7 @@ describe("MessageHandler", () => {
         "get-console-messages-in-tab": true,
       },
       domainDenyList: [],
-      ports: [8089],
+      wsUrls: ["ws://127.0.0.1:18789"],
       auditLog: [],
     };
 
@@ -70,7 +73,7 @@ describe("MessageHandler", () => {
           "find-highlight-in-browser-tab": true,
         },
         domainDenyList: [],
-        ports: [8089],
+        wsUrls: ["ws://127.0.0.1:18789"],
         auditLog: [],
       };
       (browser.storage.local.get as jest.Mock).mockResolvedValue({
@@ -144,7 +147,7 @@ describe("MessageHandler", () => {
             "find-highlight-in-browser-tab": true,
           },
           domainDenyList: ["example.com", "another.com"],
-          ports: [8089],
+          wsUrls: ["ws://127.0.0.1:18789"],
           auditLog: [],
         };
         (browser.storage.local.get as jest.Mock).mockResolvedValue({
@@ -178,7 +181,7 @@ describe("MessageHandler", () => {
             "find-highlight-in-browser-tab": true,
           },
           domainDenyList: ["example.com", "another.com"],
-          ports: [8089],
+          wsUrls: ["ws://127.0.0.1:18789"],
           auditLog: [],
         };
         (browser.storage.local.get as jest.Mock).mockResolvedValue({
@@ -400,7 +403,7 @@ describe("MessageHandler", () => {
             "find-highlight-in-browser-tab": true,
           },
           domainDenyList: ["example.com"], // Add example.com to deny list
-          ports: [8089],
+          wsUrls: ["ws://127.0.0.1:18789"],
           auditLog: [],
         };
         (browser.storage.local.get as jest.Mock).mockResolvedValue({

@@ -16,11 +16,10 @@ npm run build  # Build all projects using nx
 
 ### Individual project builds
 ```bash
-# MCP Server
 cd mcp-server && npm run build
-
-# Firefox Extension  
 cd firefox-extension && npm run build
+cd chrome-extension && npm run build
+cd common && npm install && npm run build   # required before Docker / mcp-server runtime
 ```
 
 ### Test
@@ -30,7 +29,15 @@ cd firefox-extension && npm test
 
 ### Start MCP Server
 ```bash
-cd mcp-server && npm start
+cd mcp-server && npm start          # HTTP on :18790 (OpenCode)
+cd mcp-server && npm run start:stdio  # stdio (Claude Desktop)
+```
+
+### Docker
+```bash
+npm run docker:up      # build + start single MCP container (18789/18790)
+npm run docker:down
+npm run docker:logs
 ```
 
 ### Package DXT
@@ -40,31 +47,60 @@ cd mcp-server && npm run pack-dxt
 
 ## Architecture
 
-This is a monorepo with three main components:
+Monorepo with four main parts:
 
-1. **mcp-server**: Node.js MCP server that communicates with Claude Desktop and the browser extension via WebSocket
-2. **firefox-extension**: Firefox browser extension that executes browser actions
-3. **common**: Shared TypeScript interfaces for message passing between server and extension
+1. **mcp-server** — MCP server (HTTP + stdio) and WebSocket listener for browser extensions
+2. **firefox-extension** / **chrome-extension** — browser add-ons that execute tab/page actions
+3. **common** — shared TypeScript types, WebSocket client, wire envelope, handshake (`browserId` registration)
 
-### Communication Flow
-- MCP Server ↔ Claude Desktop: MCP protocol over stdio
-- MCP Server ↔ Firefox Extension: WebSocket with authentication via shared secret
-- Extension uses Firefox WebExtensions API for browser control
+### Communication flow
 
-### Key Files
-- `mcp-server/server.ts`: Main MCP server with tool definitions
-- `mcp-server/browser-api.ts`: WebSocket client for extension communication
-- `firefox-extension/background.ts`: Extension background script
-- `firefox-extension/message-handler.ts`: Handles server messages and executes browser actions
-- `common/server-messages.ts`: Messages sent from server to extension
-- `common/extension-messages.ts`: Messages sent from extension to server
+```
+OpenCode / Claude  ──MCP (HTTP :18790 or stdio)──►  mcp-server
+                                                      │
+                         ws://127.0.0.1:18789         │  Browser registry
+              ┌──────────────────────────────────────┤  (browserId → WebSocket)
+              ▼                    ▼                 ▼
+         Firefox ext           Chrome ext        … more installs
+         browserId=A           browserId=B
+```
+
+- **One MCP server, many browsers.** Each extension registers with a unique `browserId` on connect.
+- MCP tools take optional `browserId` (required when >1 browser connected). Use `list-connected-browsers` first.
+- Per-browser request queue on the server (sequential commands per browser).
+
+### Key files
+
+| Path | Role |
+|------|------|
+| `mcp-server/http-server.ts` | HTTP MCP transport (OpenCode) |
+| `mcp-server/server.ts` | stdio MCP transport (Claude Desktop) |
+| `mcp-server/browser-api.ts` | WebSocket server, browser registry, routing |
+| `mcp-server/mcp-tools.ts` | MCP tool definitions |
+| `common/handshake-messages.ts` | `register` / `register-ack`, `browserId` validation |
+| `common/wire-envelope.ts` | JSON message envelope (optional HMAC) |
+| `common/websocket-client.ts` | Extension-side WS client |
+| `firefox-extension/background.ts` | Extension init + WS connect |
+| `firefox-extension/message-handler.ts` | Command dispatch |
 
 ### Authentication
-The extension generates a random secret key that must be configured in the MCP server's environment as `EXTENSION_SECRET`. The server connects to the extension on port 8089 (configurable via `EXTENSION_PORT`).
 
-### Development Notes
-- Uses esbuild for extension bundling
-- TypeScript throughout with shared interfaces
-- Jest for testing (extension only)
-- Nx for monorepo management
-- Extension requires user consent for accessing webpage content by default
+**Default: localhost trust mode** — no `EXTENSION_SECRET` required. Server binds to `127.0.0.1`; extensions connect to `ws://127.0.0.1:18789`.
+
+Optional: set `EXTENSION_SECRET` in the MCP server env (and legacy secret in extension storage) to enable HMAC signing on WebSocket messages.
+
+### Extension configuration (Options page)
+
+- **Browser ID** — unique per install (`browser-a1b2c3d4`, `browser-firefox-work`, …)
+- **WebSocket URL** — default `ws://127.0.0.1:18789` (same for all installs on one server)
+- **Tool toggles**, domain deny list, audit log
+
+No secret field in the UI. Upgrades from older versions may still have a secret in `browser.storage.local` — background passes it automatically if present.
+
+### Development notes
+
+- esbuild for extensions; tsc for mcp-server and common
+- Jest tests in firefox-extension only
+- Nx monorepo orchestration
+- Docker: builds `common/` then `mcp-server/` (see `Dockerfile`)
+- Page tools require per-domain user consent in the extension

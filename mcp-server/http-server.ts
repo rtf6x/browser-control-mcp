@@ -5,7 +5,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { BrowserAPI } from "./browser-api";
 import { createBrowserControlServer } from "./mcp-tools";
 
-const DEFAULT_MCP_HTTP_PORT = 8090;
+import { DEFAULT_MCP_HTTP_PORT } from "@browser-control-mcp/common/ports";
 
 function readHttpConfig() {
   const port = process.env.MCP_HTTP_PORT
@@ -40,7 +40,11 @@ async function main() {
       : createMcpExpressApp({ host });
 
   app.get("/health", (_req, res) => {
-    res.json({ status: "ok", service: "browser-control-mcp" });
+    res.json({
+      status: "ok",
+      service: "browser-control-mcp",
+      browsers: browserApi.listConnectedBrowsers(),
+    });
   });
 
   const mcpPostHandler = async (req: Request, res: Response) => {
@@ -140,7 +144,7 @@ async function main() {
       `Browser Control MCP HTTP server listening on http://${host}:${port}/mcp`
     );
     console.error(
-      `Firefox extension WebSocket on port ${browserApi.getSelectedPort()}`
+      `Browser extension WebSocket on port ${browserApi.getSelectedPort()}`
     );
   });
 

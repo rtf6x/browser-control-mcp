@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="utf-8">
-  <title>Browser Control MCP Options</title>
+  <title>Browser Control MCP (Chrome) Options</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
@@ -400,7 +400,7 @@
   </div>
 
   <div class="container main-content" id="main-content">
-    <h1>Browser Control MCP (Firefox)</h1>
+    <h1>Browser Control MCP (Chrome)</h1>
     <p>One extension install ↔ one <strong>browserId</strong> on the shared MCP server. <strong id="extension-version"></strong></p>
 
     <div class="section-container">
@@ -410,7 +410,7 @@
         <ol>
           <li>
             <strong>Set browserId</strong>
-            Scroll to <em>Browser ID</em> below — unique per install (e.g. <code>browser-work</code>).
+            Scroll to <em>Browser ID</em> below — unique per install (e.g. <code>browser-chrome</code>).
           </li>
           <li>
             <strong>Start MCP server</strong>
@@ -418,7 +418,7 @@
           </li>
           <li>
             <strong>WebSocket URL</strong>
-            Default <code>ws://127.0.0.1:18789</code> for local. Use <code>wss://…</code> for cloud or LAN.
+            Default <code>ws://127.0.0.1:18789</code> for a local server. Use <code>wss://…</code> for cloud or LAN hosts.
           </li>
           <li>
             <strong>Connect OpenCode</strong>
@@ -438,7 +438,7 @@
       <div class="section-content">
         <p>Unique ID for <strong>this</strong> browser install. The MCP server routes tool calls by <code>browserId</code>. Letters, digits, <code>_</code>, <code>-</code> only (1–64 chars). Spaces are converted to <code>-</code>.</p>
         <input type="text" id="browser-id-input" placeholder="browser-chrome-work" maxlength="64" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; margin-bottom: 10px;" />
-        <input type="text" id="browser-label-input" placeholder="Optional label (e.g. Firefox personal)" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;" />
+        <input type="text" id="browser-label-input" placeholder="Optional label (e.g. Chrome work)" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;" />
         <button class="copy-button" id="save-browser-id">Save Browser ID</button>
         <div class="status" id="browser-id-status"></div>
       </div>

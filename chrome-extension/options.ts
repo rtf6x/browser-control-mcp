@@ -1,6 +1,7 @@
 /**
- * Options page script for Browser Control MCP extension
+ * Options page script for Browser Control MCP (Chrome)
  */
+import { browser } from "./browser";
 import {
   AVAILABLE_TOOLS,
   getAllToolSettings,
@@ -500,7 +501,7 @@ function showGlobalPermissionRequest(permissions: string[]) {
   const handleGrant = async () => {
     try {
       const granted = await browser.permissions.request({
-        permissions: permissions as browser.permissions.Permissions["permissions"],
+        permissions: permissions as chrome.permissions.Permissions["permissions"],
       });
 
       if (granted) {

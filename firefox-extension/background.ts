@@ -1,9 +1,20 @@
-import { WebsocketClient } from "./client";
+import { createWebsocketClient } from "./client";
 import { MessageHandler } from "./message-handler";
-import { getConfig, generateSecret } from "./extension-config";
+import { getConfig } from "./extension-config";
 
-function initClient(port: number, secret: string) {
-  const wsClient = new WebsocketClient(port, secret);
+browser.runtime.onInstalled.addListener((details) => {
+  if (details.reason === "install") {
+    void browser.runtime.openOptionsPage();
+  }
+});
+
+function initClient(
+  wsUrl: string,
+  browserId: string,
+  secret: string,
+  label?: string
+) {
+  const wsClient = createWebsocketClient(wsUrl, browserId, secret, label, "firefox");
   const messageHandler = new MessageHandler(wsClient);
 
   wsClient.connect();
@@ -22,33 +33,15 @@ function initClient(port: number, secret: string) {
   });
 }
 
-async function initExtension() {
-  let config = await getConfig();
-  if (!config.secret) {
-    console.log("No secret found, generating new one");
-    await generateSecret();
-    // Open the options page to allow the user to view the config:
-    await browser.runtime.openOptionsPage();
-    config = await getConfig();
-  }
-  return config;
-}
-
-initExtension()
+getConfig()
   .then((config) => {
-    const secret = config.secret;
-
-    if (!secret) {
-      console.error("Secret not found in storage - reinstall extension");
+    const wsUrlList = config.wsUrls;
+    if (!wsUrlList?.length) {
+      console.error("No WebSocket URLs configured in extension config");
       return;
     }
-    const portList = config.ports;
-    if (portList.length === 0) {
-      console.error("No ports configured in extension config");
-      return;
-    }
-    for (const port of portList) {
-      initClient(port, secret);
+    for (const wsUrl of wsUrlList) {
+      initClient(wsUrl, config.browserId!, config.secret ?? "", config.label);
     }
     console.log("Browser extension initialized");
   })

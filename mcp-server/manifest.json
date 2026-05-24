@@ -1,10 +1,10 @@
 {
     "dxt_version": "0.1",
     "name": "browser-control-firefox",
-    "version": "1.5.1",
+    "version": "1.6.0",
     "display_name": "Firefox Control",
     "description": "Control Mozilla Firefox: tabs, history and web content (privacy aware)",
-    "long_description": "This MCP server provides AI assistants with access to the browser's tab management, browsing history, page search, and webpage text content through a local MCP (Model Context Protocol) connection.\n\nBefore accessing any webpage content, explicit user consent is required for each domain through browser-side permissions.\n\n**Note:** This extension requires a separate Firefox add-on component, which is available at [https://addons.mozilla.org/en-US/firefox/addon/browser-control-mcp/](https://addons.mozilla.org/en-US/firefox/addon/browser-control-mcp/). Start by installing the Firefox add-on, then copy the secret key from the add-on settings page (it will open automatically) and paste it into this extension's configuration.",
+    "long_description": "This MCP server provides AI assistants with access to browser tab management, history, page search, and webpage content through a local MCP connection.\n\nInstall the Browser Control MCP browser extension (Firefox or Chrome from this repository). Each install registers with a unique browserId on ws://127.0.0.1:18789. Use list-connected-browsers and pass browserId in tool calls when multiple browsers are connected.\n\nBefore accessing webpage content, explicit user consent is required per domain in the extension. No shared secret is required by default (localhost trust mode); set EXTENSION_SECRET optionally for HMAC signing.",
     "author": {
         "name": "eyalzh",
         "url": "https://github.com/eyalzh"
@@ -37,20 +37,24 @@
     "user_config": {
         "extension_secret": {
             "type": "string",
-            "title": "Firefox Extension Secret",
-            "description": "The secret key provided by the Firefox extension",
+            "title": "Extension secret (optional)",
+            "description": "Only if HMAC signing is enabled on the MCP server (EXTENSION_SECRET). Leave empty for localhost trust mode.",
             "sensitive": true,
-            "required": true
+            "required": false
         },
         "port": {
             "type": "string",
             "title": "Extension Port",
-            "description": "The port that the MCP server will use to communicate with the Firefox extension (default is 8089)",
-            "default": "8089",
+            "description": "The port that the MCP server will use to communicate with the Firefox extension (default is 18789)",
+            "default": "18789",
             "required": false
         }
     },
     "tools": [
+        {
+            "name": "list-connected-browsers",
+            "description": "List browser extension installs connected to this MCP server"
+        },
         {
             "name": "open-browser-tab",
             "description": "Open a new tab in the browser"

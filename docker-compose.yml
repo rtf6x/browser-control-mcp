@@ -1,24 +1,26 @@
 services:
+  # One MCP server for all browser extension installs.
+  # Each extension: unique browserId in Options, WebSocket port 18789.
   browser-control-mcp:
     build: .
     image: browser-control-mcp
     container_name: browser-control-mcp
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8089:8089"
-      - "127.0.0.1:8090:8090"
+      - "127.0.0.1:18789:18789"
+      - "127.0.0.1:18790:18790"
     environment:
-      EXTENSION_SECRET: ${EXTENSION_SECRET:?Set EXTENSION_SECRET in .env}
-      EXTENSION_PORT: "8089"
-      MCP_HTTP_PORT: "8090"
+      EXTENSION_PORT: "18789"
+      MCP_HTTP_PORT: "18790"
       CONTAINERIZED: "true"
+      # Optional: EXTENSION_SECRET=${EXTENSION_SECRET}
     healthcheck:
       test:
         [
           "CMD",
           "node",
           "-e",
-          "fetch('http://127.0.0.1:8090/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:18790/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 30s
       timeout: 5s

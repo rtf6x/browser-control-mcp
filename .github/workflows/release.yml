@@ -18,14 +18,13 @@ jobs:
         node-version: 22
         cache: 'npm'
     
-    - name: Install root dependencies
+    - name: Install dependencies
       run: npm install
     
-    - name: Install MCP server dependencies
-      run: npm install --prefix mcp-server
-    
-    - name: Build MCP server package
-      run: cd mcp-server && npm run build && npm run pack-dxt
+    - name: Build common and MCP server
+      run: |
+        npm run build --prefix common
+        cd mcp-server && npm run build && npm run pack-dxt
     
     - name: Rename package file with version
       run: |
@@ -39,4 +38,3 @@ jobs:
         gh release upload ${{ github.event.release.tag_name }} \
           ./mcp-server/mcp-server-${{ github.event.release.tag_name }}.dxt \
           --clobber
-

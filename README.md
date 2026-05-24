@@ -1,44 +1,67 @@
 # Browser Control MCP (Personal)
 
-Personal fork of [Browser Control MCP](https://github.com/eyalzh/browser-control-mcp) — an MCP server paired with a Firefox extension that lets AI assistants work with your browser locally.
+Personal fork of [Browser Control MCP](https://github.com/eyalzh/browser-control-mcp) — an MCP server paired with a browser extension (Firefox or Chrome) that lets AI assistants work with your browser locally.
 
 **Not affiliated** with the [official AMO add-on](https://addons.mozilla.org/en-US/firefox/addon/browser-control-mcp/). This fork uses a separate extension ID (`browser-control-mcp-personal@rtf6x.local`) and adds HTTP transport for [OpenCode](https://opencode.ai), Docker deployment, and extra page-inspection tools.
+
+## Releases
+
+| Version | Notes |
+|---------|--------|
+| **v1.6.0** (current) | Multi-browser `browserId`, WebSocket URLs, ports 18789/18790, localhost trust, `list-connected-browsers` |
+| [v1.5.2](https://github.com/rtf6x/browser-control-mcp/releases/tag/v1.5.2) | OpenCode/Docker, page tools, AMO-signed Firefox XPI (pre–multi-browser) |
+
+**Firefox extension:** build from this repo (`firefox-extension/` → `npm run pack-xpi`) or load temporary add-on. The [v1.5.2 XPI](https://github.com/rtf6x/browser-control-mcp/releases/download/v1.5.2/61b1bfecda35459f972e-1.5.2.xpi) does **not** include v1.6 multi-browser handshake — use a v1.6 build until a new signed release is published.
+
+**MCP server:** clone at `v1.6.0` (when tagged) or `main`, then `npm run docker:up`.
 
 ## What it does
 
 - **Tabs** — open, close, list, reorder, group
 - **History** — search recent browsing history
 - **Pages** — read text/links, find/highlight, run JS, query DOM, read console output (with per-domain consent)
-- **Local-only** — WebSocket + shared secret between extension and MCP server; no cloud backend
+- **Local-only** — WebSocket on `127.0.0.1`; optional HMAC secret; no cloud backend
 
 ## Architecture
 
 ```
-┌─────────────┐     MCP (stdio)      ┌──────────────┐
-│ Claude      │◄────────────────────►│              │
-│ Desktop     │                      │  MCP Server  │
-└─────────────┘                      │              │
-                                     │  :8090 HTTP  │◄── OpenCode (remote MCP)
-┌─────────────┐     ws://:8089       │  :8089 WS    │
-│ Firefox     │◄────────────────────►│              │
-│ Extension   │                      └──────────────┘
-└─────────────┘
+                    ┌─────────────────────────────────────┐
+  OpenCode          │           MCP Server                │
+  Claude Desktop ──►│  HTTP :18790 / stdio                 │
+                    │  WebSocket :18789 (browser registry) │
+                    └──────────┬────────────┬─────────────┘
+                               │            │
+                    browserId=A│            │browserId=B
+                               ▼            ▼
+                         Firefox ext    Chrome ext
+                         (Options)      (Options)
 ```
 
 | Component | Role |
 |-----------|------|
-| `firefox-extension/` | Runs in Firefox; WebSocket server on port 8089; executes browser actions |
-| `mcp-server/` | MCP server; talks to the extension over WebSocket |
-| `common/` | Shared TypeScript message types |
+| `firefox-extension/` / `chrome-extension/` | Connects via WebSocket; registers `browserId`; runs browser actions |
+| `mcp-server/` | MCP tools + WebSocket listener; routes commands by `browserId` |
+| `common/` | Shared types, wire format, handshake, extension WebSocket client |
 
 **Two MCP transports:**
 
 | Transport | Entry point | Use with |
 |-----------|-------------|----------|
-| HTTP (Streamable HTTP) | `dist/http-server.js` (:8090) | OpenCode, remote MCP clients |
+| HTTP (Streamable HTTP) | `dist/http-server.js` (:18790) | OpenCode, remote MCP clients |
 | stdio | `dist/server.js` | Claude Desktop, local MCP configs |
 
-Port **8089** is the extension WebSocket — **not** MCP. Do not point OpenCode at `:8089`.
+Port **18789** is the extension WebSocket — **not** MCP. Do not point OpenCode at `:18789`.
+
+**One MCP server ↔ many browser installs.** Each extension registers with a unique `browserId` on the same WebSocket URL. MCP tools accept optional `browserId` (required when more than one browser is connected). See [Multiple browsers, one MCP server](#multiple-browsers-one-mcp-server).
+
+## Supported browsers
+
+| Browser | Extension |
+|---------|-----------|
+| **Firefox** | Build from `firefox-extension/` (v1.6+) or temporary add-on |
+| **Chrome / Chromium** | Load unpacked from `chrome-extension/` |
+
+Default ports: WebSocket **18789**, MCP HTTP **18790** (registered-user range, avoids crowded 808x dev ports). Health probe uses HTTP port. All browser installs on one server use the same pair.
 
 ## MCP tools
 
@@ -46,17 +69,20 @@ All tools can be enabled or disabled individually in the extension options page 
 
 | Tool | Description | Consent |
 |------|-------------|---------|
-| `open-browser-tab` | Open a URL in a new tab | — |
-| `close-browser-tabs` | Close tabs by ID | — |
-| `get-list-of-open-tabs` | List open tabs (paginated) | — |
+| `list-connected-browsers` | Connected installs: `browserId`, label, browser type | — |
+| `open-browser-tab` | Open URL (`browserId` if >1 browser) | — |
+| `close-browser-tabs` | Close tabs by ID (`browserId` if >1 browser) | — |
+| `get-list-of-open-tabs` | List open tabs, paginated | — |
 | `get-recent-browser-history` | Search or list recent history | — |
 | `reorder-browser-tabs` | Change tab order | — |
-| `group-browser-tabs` | Create a tab group (title, color, collapse) | — |
-| `get-tab-web-content` | Read page text and links (paginated for large pages) | **consent** |
-| `find-highlight-in-browser-tab` | Find and highlight text on a page | **consent** |
-| `evaluate-script-in-tab` | Run a JSON-serializable JS function in the page | **consent** |
-| `query-dom-in-tab` | CSS selector → text, HTML, or element list | **consent** |
-| `get-console-messages-in-tab` | Read `console.log/info/warn/error/debug` from a tab | **consent** |
+| `group-browser-tabs` | Create a tab group | — |
+| `get-tab-web-content` | Read page text and links (paginated) | **consent** |
+| `find-highlight-in-browser-tab` | Find and highlight text | **consent** |
+| `evaluate-script-in-tab` | Run JSON-serializable JS in the page | **consent** |
+| `query-dom-in-tab` | CSS selector → text, HTML, or list | **consent** |
+| `get-console-messages-in-tab` | Read console output from a tab | **consent** |
+
+All action tools accept optional **`browserId`**. Omit it when exactly one browser is connected.
 
 The three page-inspection tools (`evaluate-script`, `query-dom`, `get-console-messages`) are **disabled by default** in extension settings.
 
@@ -78,7 +104,8 @@ The three page-inspection tools (`evaluate-script`, `query-dom`, `get-console-me
 
 Compared to full browser-automation MCP servers, this stack is designed for use with a personal browser:
 
-- Local WebSocket only (`127.0.0.1`) with a random shared secret
+- **Localhost-only** — WebSocket on `127.0.0.1:18789`; no shared secret by default
+- Optional **`EXTENSION_SECRET`** on the server for HMAC signing (legacy installs may still have a secret in extension storage)
 - Per-tool toggles and an audit log in the extension options
 - Host permissions and domain consent before reading or scripting pages
 - No analytics or remote data collection (`data_collection_permissions: none`)
@@ -88,54 +115,38 @@ Compared to full browser-automation MCP servers, this stack is designed for use 
 
 ## Quick start (OpenCode + Docker)
 
-Recommended setup: one persistent MCP container + Firefox extension on the host.
-
-### 1. Build
+### 1. Get the code
 
 ```bash
+git clone https://github.com/rtf6x/browser-control-mcp.git
+cd browser-control-mcp
 npm install
 npm run build
 ```
 
-### 2. Install the Firefox extension
+### 2. Install a browser extension
 
-**Option A — signed XPI (persistent install)**
+**Firefox** — `about:debugging` → Load Temporary Add-on → `firefox-extension/manifest.json`, or `npm run pack-xpi` in `firefox-extension/`.
 
-```bash
-cd firefox-extension
-npm run pack-xpi   # → ../browser-control-mcp-dev.xpi
-```
+**Chrome** — `chrome://extensions` → Developer mode → Load unpacked → `chrome-extension/` (run `npm run build` there first).
 
-Install the XPI in Firefox. After install, open extension preferences and copy the **shared secret**.
+Open extension **Options** → set a unique **Browser ID** (auto-generated on first run). WebSocket URL **`ws://127.0.0.1:18789`** (default; use `wss://…` for remote servers).
 
-**Option B — temporary add-on (development)**
-
-1. Open `about:debugging` → This Firefox → Load Temporary Add-on
-2. Select `firefox-extension/manifest.json`
-3. Copy the secret from the options page that opens
-
-### 3. Configure environment
-
-```bash
-cp .env.example .env
-# Set EXTENSION_SECRET to the value from the extension options page
-```
-
-### 4. Start MCP server in Docker
+### 3. Start MCP server
 
 ```bash
 npm run docker:up
-# or: docker compose up -d --build
 ```
 
-Verify:
+No `.env` file required. Verify:
 
 ```bash
-curl http://127.0.0.1:8090/health
+curl http://127.0.0.1:18790/health
+# → {"status":"ok","browsers":[...]}
 npm run docker:logs
 ```
 
-### 5. Configure OpenCode
+### 4. Configure OpenCode
 
 Add to `~/.config/opencode/opencode.json`:
 
@@ -145,7 +156,7 @@ Add to `~/.config/opencode/opencode.json`:
   "mcp": {
     "browser-control": {
       "type": "remote",
-      "url": "http://127.0.0.1:8090/mcp",
+      "url": "http://127.0.0.1:18790/mcp",
       "oauth": false,
       "enabled": true
     }
@@ -153,7 +164,40 @@ Add to `~/.config/opencode/opencode.json`:
 }
 ```
 
-Restart OpenCode (or reload MCP). The extension must be running in Firefox with port **8089** and the same secret as in `.env`.
+Restart OpenCode. One MCP URL: `http://127.0.0.1:18790/mcp`. Call `list-connected-browsers` to see IDs; pass `browserId` in other tools when multiple browsers are connected.
+
+## Multiple browsers, one MCP server
+
+One Docker container serves every browser/profile you want the AI to control.
+
+| Step | Action |
+|------|--------|
+| 1 | `npm run docker:up` — ports **18789** (WS) / **18790** (MCP HTTP) |
+| 2 | Install extension in each browser (Firefox, Chrome, extra profiles…) |
+| 3 | In each **Options**: unique **Browser ID**, WebSocket URL **`ws://127.0.0.1:18789`** |
+| 4 | OpenCode: one MCP URL `http://127.0.0.1:18790/mcp` |
+
+**Agent workflow**
+
+1. `list-connected-browsers` — see available `browserId` values
+2. Pass `browserId` in tool calls when more than one browser is connected
+3. Omit `browserId` if only one browser is online
+
+**Example**
+
+```json
+"open-browser-tab": {
+  "browserId": "browser-chrome-work",
+  "url": "https://example.com"
+}
+```
+
+**Controlling access**
+
+- Don't install the extension in browsers you don't want automated
+- Reload extension after changing Browser ID (Options → Save reloads automatically)
+
+Verify connections: `curl http://127.0.0.1:18790/health` → `browsers` array.
 
 ## Installation (other clients)
 
@@ -168,8 +212,7 @@ Build the extension and MCP server, install the Firefox add-on, then add to `cla
       "command": "node",
       "args": ["/path/to/repo/mcp-server/dist/server.js"],
       "env": {
-        "EXTENSION_SECRET": "<secret_from_extension_options>",
-        "EXTENSION_PORT": "8089"
+        "EXTENSION_PORT": "18789"
       }
     }
   }
@@ -182,9 +225,8 @@ For Claude Desktop you can also use the upstream [DXT package](https://github.co
 
 ```bash
 cd mcp-server
-cp ../.env .env   # or export EXTENSION_SECRET
 npm run build
-npm start         # HTTP on :8090
+npm start         # HTTP on :18790
 # npm run start:stdio   # stdio for Claude Desktop
 ```
 
@@ -193,9 +235,8 @@ npm start         # HTTP on :8090
 ```bash
 docker build -t browser-control-mcp .
 docker run -d --name browser-control-mcp --restart unless-stopped \
-  -p 127.0.0.1:8089:8089 \
-  -p 127.0.0.1:8090:8090 \
-  -e EXTENSION_SECRET=<secret_from_extension> \
+  -p 127.0.0.1:18789:18789 \
+  -p 127.0.0.1:18790:18790 \
   -e CONTAINERIZED=true \
   browser-control-mcp
 ```
@@ -204,10 +245,10 @@ docker run -d --name browser-control-mcp --restart unless-stopped \
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `EXTENSION_SECRET` | — | Shared secret from extension options (required) |
-| `EXTENSION_PORT` | `8089` | WebSocket port the extension listens on |
-| `MCP_HTTP_PORT` | `8090` | HTTP MCP endpoint port |
-| `CONTAINERIZED` | — | Set to `true` in Docker so HTTP binds to `0.0.0.0` |
+| `EXTENSION_SECRET` | *(unset)* | Optional HMAC signing; unset = localhost trust mode |
+| `EXTENSION_PORT` | `18789` | WebSocket port (extensions connect here) |
+| `MCP_HTTP_PORT` | `18790` | HTTP MCP endpoint (`/mcp`, `/health`) |
+| `CONTAINERIZED` | — | Set to `true` in Docker |
 
 ## Commands
 
@@ -219,6 +260,10 @@ npm run build            # build extension + MCP server
 cd firefox-extension && npm run build
 cd firefox-extension && npm run pack-xpi
 cd firefox-extension && npm test
+
+# Chrome extension
+cd chrome-extension && npm run build
+cd chrome-extension && npm run pack-zip
 
 # MCP server
 cd mcp-server && npm start          # HTTP (default)
@@ -234,37 +279,45 @@ npm run docker:logs
 
 | Problem | Likely cause | Fix |
 |---------|--------------|-----|
-| OpenCode: failed to get tools | Wrong URL or server not running | Use `http://127.0.0.1:8090/mcp`, not `:8089`. Check `curl …/health` |
-| MCP can't connect to extension | Secret mismatch or extension inactive | Match `.env` secret with options page; reload extension |
-| Port 8089 already in use | Multiple MCP instances | Stop extra containers/processes: `docker compose down`, kill stray `node dist/server.js` |
-| Unknown command in extension | Old AMO build without new tools | Install this fork's XPI (v1.5.2+) |
-| Page tools fail | Tool disabled or no domain consent | Enable tool in options; grant consent for the site |
+| OpenCode: failed to get tools | Wrong URL or server down | `http://127.0.0.1:18790/mcp`, not `:18789`. Check `curl …/health` |
+| `browsers: []` in health | Extension not connected | Reload extension; WebSocket URL **`ws://127.0.0.1:18789`** in Options |
+| Wrong browser targeted | Multiple browsers connected | Call `list-connected-browsers`; pass `browserId` |
+| Port 18789 already in use | Stray MCP process/container | `docker compose down`; kill stray `node dist/http-server.js` |
+| Unknown command in extension | Old build | Rebuild/reload extension from this repo |
+| Page tools fail | Tool off or no consent | Enable in Options; approve domain in extension UI |
 
-After changing code or `.env`:
+After code changes:
 
 ```bash
 npm run build && npm run docker:up
 ```
 
-Reload the Firefox extension if you changed extension code.
+Reload browser extensions after extension code changes.
 
 ## Project layout
 
 ```
 browser-control-mcp/
-├── common/                 # Shared message types
-├── firefox-extension/      # Firefox add-on (TypeScript → esbuild)
-├── mcp-server/             # MCP server (TypeScript → tsc)
-├── docker-compose.yml
+├── common/                 # Shared types, wire envelope, WS client
+├── firefox-extension/
+├── chrome-extension/
+├── mcp-server/
+├── docker-compose.yml      # single MCP server (18789/18790)
 ├── Dockerfile
-└── .env.example
+└── .env.example            # optional settings (empty by default)
 ```
+
+## Roadmap
+
+- **Chrome Web Store** packaging (currently load-unpacked / zip only)
 
 ## Upstream
 
 This fork is based on [eyalzh/browser-control-mcp](https://github.com/eyalzh/browser-control-mcp). The official project and [AMO listing](https://addons.mozilla.org/en-US/firefox/addon/browser-control-mcp/) are maintained separately.
 
-**Fork additions:** HTTP MCP for OpenCode, Docker compose, `evaluate-script-in-tab`, `query-dom-in-tab`, `get-console-messages-in-tab`, personal extension ID.
+Repository: [github.com/rtf6x/browser-control-mcp](https://github.com/rtf6x/browser-control-mcp)
+
+**Fork additions (v1.6):** multi-browser `browserId` routing, `list-connected-browsers`, localhost trust mode, Chrome extension, HTTP MCP for OpenCode, Docker, page-inspection tools.
 
 ## License
 

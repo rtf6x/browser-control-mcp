@@ -1,0 +1,18 @@
+{
+  "name": "chrome-extension",
+  "version": "1.6.0",
+  "private": true,
+  "scripts": {
+    "build": "esbuild background.ts --bundle --outfile=dist/background.js --format=iife --platform=browser && esbuild options.ts --bundle --outfile=dist/options.js --format=iife --platform=browser",
+    "pack-zip": "npm run build && rm -f ../browser-control-mcp-chrome.zip && zip -r ../browser-control-mcp-chrome.zip manifest.json dist options.html assets -x '*.DS_Store'"
+  },
+  "license": "MIT",
+  "description": "Browser Control MCP Chrome Extension",
+  "devDependencies": {
+    "@browser-control-mcp/common": "../common",
+    "@types/chrome": "^0.0.304",
+    "esbuild": "0.25.1",
+    "typescript": "^5.8.2"
+  },
+  "nx": {}
+}
