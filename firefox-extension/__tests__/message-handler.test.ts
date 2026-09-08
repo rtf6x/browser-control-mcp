@@ -116,19 +116,29 @@ describe("MessageHandler", () => {
         });
       });
 
-      it("should throw an error if URL does not start with https://", async () => {
+      it("should open a new tab for non-http(s) protocols like ftp://", async () => {
         // Arrange
         const request: ServerMessageRequest = {
           cmd: "open-tab",
-          url: "http://example.com",
+          url: "ftp://example.com",
           correlationId: "test-correlation-id",
         };
 
-        // Act & Assert
-        await expect(
-          messageHandler.handleDecodedMessage(request)
-        ).rejects.toThrow("Invalid URL");
-        expect(browser.tabs.create).not.toHaveBeenCalled();
+        const mockTab = { id: 124 };
+        (browser.tabs.create as jest.Mock).mockResolvedValue(mockTab);
+
+        // Act
+        await messageHandler.handleDecodedMessage(request);
+
+        // Assert
+        expect(browser.tabs.create).toHaveBeenCalledWith({
+          url: "ftp://example.com",
+        });
+        expect(mockClient.sendResourceToServer).toHaveBeenCalledWith({
+          resource: "opened-tab-id",
+          correlationId: "test-correlation-id",
+          tabId: 124,
+        });
       });
 
       it("should throw an error if domain is in deny list", async () => {

@@ -122,11 +122,6 @@ export class MessageHandler {
   }
 
   private async openUrl(correlationId: string, url: string): Promise<void> {
-    if (!url.startsWith("https://")) {
-      console.error("Invalid URL:", url);
-      throw new Error("Invalid URL");
-    }
-
     if (await isDomainInDenyList(url)) {
       throw new Error("Domain in user defined deny list");
     }
